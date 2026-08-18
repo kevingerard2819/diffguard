@@ -27,6 +27,9 @@ importers:
       '@eslint/js':
         specifier: ^9.39.5
         version: 9.39.5
+      '@next/eslint-plugin-next':
+        specifier: 15.5.21
+        version: 15.5.21
       '@types/node':
         specifier: ^24.3.0
         version: 24.13.3
@@ -36,6 +39,12 @@ importers:
       '@types/react-dom':
         specifier: ^19.1.9
         version: 19.2.4(@types/react@19.2.18)
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^8.67.0
+        version: 8.67.0(@typescript-eslint/parser@8.67.0(eslint@9.39.5(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3))(eslint@9.39.5(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3)
+      '@typescript-eslint/parser':
+        specifier: ^8.67.0
+        version: 8.67.0(eslint@9.39.5(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3)
       '@vitest/coverage-v8':
         specifier: ^3.2.4
         version: 3.2.7(supports-color@7.2.0)(vitest@3.2.7(@types/node@24.13.3)(supports-color@7.2.0))
@@ -45,6 +54,12 @@ importers:
       eslint-config-next:
         specifier: 15.5.21
         version: 15.5.21(eslint@9.39.5(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.9.3)
+      eslint-plugin-react-hooks:
+        specifier: ^5.2.0
+        version: 5.2.0(eslint@9.39.5(supports-color@7.2.0))
+      globals:
+        specifier: ^14.0.0
+        version: 14.0.0
       typescript:
         specifier: ^5.9.2
         version: 5.9.3
