@@ -387,7 +387,6 @@ export function ReviewWorkbench({ initialResult = null }: { initialResult?: Revi
             title={result ? "Jump to verified findings" : "Run a review to see findings"}
             onClick={handleFindingsNavigation}
           ><span>!</span>Findings{result && <em>{result.findings.length}</em>}</a>
-          <a className="navItem" href="/evaluation"><span>%</span>Evaluation</a>
         </nav>
         <div className="sideStatus">
           <div className="statusRow"><span className="statusDot" />Guardrails active</div>
@@ -401,7 +400,6 @@ export function ReviewWorkbench({ initialResult = null }: { initialResult?: Revi
           <div className="topActions">
             <span className="modelBadge"><span /> {result ? (result.analysisMode === "hybrid" ? "Gemini + rules" : "deterministic") : "guardrails ready"}</span>
             <ThemeToggle />
-            <a className="ghostButton" href="/evaluation">View evals</a>
           </div>
         </header>
 
