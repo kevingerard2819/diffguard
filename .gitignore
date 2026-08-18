@@ -1,0 +1,26 @@
+# dependencies
+/node_modules
+/.pnpm-store/
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# local environment files
+.env*
+!.env.example
+
+# test output
+/coverage/
+/artifacts/
+/tmp/
+/diffguard-review.json
+
+# misc
+.DS_Store
+*.pem
+*.tsbuildinfo
+next-env.d.ts

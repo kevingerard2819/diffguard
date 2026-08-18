@@ -1,0 +1,68 @@
+name: DiffGuard PR review
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Public pull request number to review"
+        required: true
+        type: number
+      comment:
+        description: "Create or update the evidence summary comment"
+        required: true
+        default: true
+        type: boolean
+      fail_on:
+        description: "Optional risk threshold for a failing check"
+        required: true
+        default: "never"
+        type: choice
+        options: [never, critical, high, medium, low]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: diffguard-pr-${{ inputs.pr_number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require deployed DiffGuard URL
+        shell: bash
+        env:
+          DIFFGUARD_URL: ${{ vars.DIFFGUARD_URL }}
+        run: |
+          if [[ -z "$DIFFGUARD_URL" ]]; then
+            echo "::error::Set the repository variable DIFFGUARD_URL to the deployed HTTPS application URL."
+            exit 1
+          fi
+      - name: Check out trusted default branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - name: Run evidence-first review
+        id: diffguard
+        uses: ./
+        with:
+          diffguard-url: ${{ vars.DIFFGUARD_URL }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          pr-number: ${{ inputs.pr_number }}
+          comment: ${{ inputs.comment }}
+          fail-on: ${{ inputs.fail_on }}
+          report-path: diffguard-review.json
+      - name: Upload structured review evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: diffguard-pr-${{ inputs.pr_number }}-${{ github.run_id }}
+          path: diffguard-review.json
+          if-no-files-found: warn
+          retention-days: 30
+

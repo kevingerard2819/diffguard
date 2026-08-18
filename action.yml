@@ -1,0 +1,65 @@
+name: "DiffGuard PR review"
+description: "Run an evidence-first DiffGuard review and publish a GitHub summary, JSON artifact, and optional PR comment."
+author: "DiffGuard"
+
+branding:
+  icon: "shield"
+  color: "blue"
+
+inputs:
+  diffguard-url:
+    description: "Base URL of the deployed DiffGuard application."
+    required: true
+  github-token:
+    description: "GitHub token used only to create or update the PR comment."
+    required: false
+    default: ""
+  pr-number:
+    description: "Pull request number. Defaults to the pull_request event payload when available."
+    required: false
+    default: ""
+  comment:
+    description: "Create or update the DiffGuard pull-request comment."
+    required: false
+    default: "true"
+  fail-on:
+    description: "Fail at or above this risk level: never, low, medium, high, or critical."
+    required: false
+    default: "never"
+  report-path:
+    description: "Workspace-relative path for the complete JSON review report."
+    required: false
+    default: "diffguard-review.json"
+
+outputs:
+  review-id:
+    description: "Stable DiffGuard review identifier."
+    value: ${{ steps.review.outputs.review-id }}
+  risk-score:
+    description: "Bounded DiffGuard risk score."
+    value: ${{ steps.review.outputs.risk-score }}
+  risk-level:
+    description: "Overall risk level."
+    value: ${{ steps.review.outputs.risk-level }}
+  report-path:
+    description: "Absolute path to the JSON review report."
+    value: ${{ steps.review.outputs.report-path }}
+  comment-status:
+    description: "Whether the PR comment was created, updated, or skipped."
+    value: ${{ steps.review.outputs.comment-status }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: review
+      name: Review pull request with DiffGuard
+      shell: bash
+      env:
+        DIFFGUARD_URL: ${{ inputs.diffguard-url }}
+        DIFFGUARD_GITHUB_TOKEN: ${{ inputs.github-token }}
+        DIFFGUARD_PR_NUMBER: ${{ inputs.pr-number }}
+        DIFFGUARD_COMMENT: ${{ inputs.comment }}
+        DIFFGUARD_FAIL_ON: ${{ inputs.fail-on }}
+        DIFFGUARD_REPORT_PATH: ${{ inputs.report-path }}
+      run: node "$GITHUB_ACTION_PATH/scripts/github-review.mjs"
+
