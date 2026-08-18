@@ -10,7 +10,7 @@ import {
 } from "@/lib/review-assistant";
 import { ThemeToggle } from "@/components/theme-toggle";
 
-type InputSource = "github" | "raw" | "demo";
+type InputSource = "github" | "raw";
 
 const INPUT_COPY: Record<
   InputSource,
@@ -27,12 +27,6 @@ const INPUT_COPY: Record<
     helper: "Paste a public or non-sensitive unified diff up to 500 KB. Source content is always untrusted data.",
     label: "Unified git diff",
     format: "Starts with diff --git",
-  },
-  demo: {
-    button: "Run seeded demo",
-    helper: "Uses a fixed vulnerable diff and adversarial AI candidates without spending Gemini quota.",
-    label: "Seeded vulnerable demo",
-    format: "Safe, repeatable fixture",
   },
 };
 
@@ -250,7 +244,7 @@ function BoundaryInspector({ result }: { result: ReviewResult }) {
 
 export function ReviewWorkbench({ initialResult = null }: { initialResult?: ReviewResult | null }) {
   const [source, setSource] = useState<InputSource>("github");
-  const [inputs, setInputs] = useState<Record<InputSource, string>>({ github: "", raw: "", demo: "" });
+  const [inputs, setInputs] = useState<Record<InputSource, string>>({ github: "", raw: "" });
   const [result, setResult] = useState<ReviewResult | null>(initialResult);
   const [selectedFindingId, setSelectedFindingId] = useState(initialResult?.findings[0]?.id || "");
   const [selectedFilePath, setSelectedFilePath] = useState(initialResult?.files[0]?.path || "");
@@ -300,9 +294,7 @@ export function ReviewWorkbench({ initialResult = null }: { initialResult?: Revi
       const response = await fetch("/api/review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(nextSource === "demo"
-          ? { source: "demo" }
-          : { source: nextSource, value: submittedValue }),
+        body: JSON.stringify({ source: nextSource, value: submittedValue }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "Review failed.");
@@ -418,24 +410,20 @@ export function ReviewWorkbench({ initialResult = null }: { initialResult?: Revi
             <div>
               <p className="eyebrow">New review</p>
               <h2>Choose what you want DiffGuard to check.</h2>
-              <p>Use a public pull request, paste a unified diff, or run the safe seeded demo.</p>
+              <p>Submit a public pull request or unified diff. DiffGuard reviews the changed lines and returns findings with exact supporting evidence.</p>
             </div>
-            <ol aria-label="Three review steps">
-              <li className="active"><span>1</span>Choose input</li>
-              <li><span>2</span>Run review</li>
-              <li><span>3</span>Inspect evidence</li>
-            </ol>
+            <p className="reviewFlowNote"><b>One action:</b> run the review, then explore the evidence-backed results below.</p>
           </header>
           <div className="inputTabs" role="tablist" aria-label="Review input type">
-            {(["github", "raw", "demo"] as InputSource[]).map((tab) => (
+            {(["github", "raw"] as InputSource[]).map((tab) => (
               <button className={`inputTab ${source === tab ? "active" : ""}`} key={tab} role="tab" aria-selected={source === tab} aria-controls="review-input-panel" disabled={loading} onClick={() => selectSource(tab)}>
-                {tab === "github" ? "GitHub PR" : tab === "raw" ? "Raw diff" : "Seeded demo"}
+                {tab === "github" ? "GitHub PR" : "Raw diff"}
               </button>
             ))}
           </div>
           <div className="inputRow" id="review-input-panel" role="tabpanel">
             <div className="inputField">
-              <label id="review-input-label" htmlFor={source === "demo" ? undefined : "review-input"}><b>{INPUT_COPY[source].label}</b><span>{INPUT_COPY[source].format}</span></label>
+              <label id="review-input-label" htmlFor="review-input"><b>{INPUT_COPY[source].label}</b><span>{INPUT_COPY[source].format}</span></label>
               {source === "github" && (
                 <div className="urlInput"><span aria-hidden="true">GH</span>
                   <input id="review-input" aria-describedby="input-helper provider-disclosure" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="https://github.com/owner/repo/pull/123" value={value} onChange={(event) => updateValue(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && value.trim() && !loading) void analyze(); }} />
@@ -444,28 +432,16 @@ export function ReviewWorkbench({ initialResult = null }: { initialResult?: Revi
               {source === "raw" && (
                 <textarea id="review-input" className="diffInput" aria-describedby="input-helper provider-disclosure" spellCheck={false} placeholder={'diff --git a/file.ts b/file.ts\n--- a/file.ts\n+++ b/file.ts\n@@ -1 +1 @@'} value={value} onChange={(event) => updateValue(event.target.value)} />
               )}
-              {source === "demo" && (
-                <div className="demoPreview" id="review-input" tabIndex={0} role="group" aria-labelledby="review-input-label" aria-describedby="input-helper provider-disclosure">
-                  <span className="demoPreviewMark">DG</span>
-                  <div>
-                    <b>Purpose-built trust-boundary demonstration</b>
-                    <small>SQL interpolation · hardcoded token · dynamic eval · prompt injection</small>
-                    <p>Five seeded AI candidates enter the boundary; unsupported, mismatched, duplicate, and low-confidence claims are rejected.</p>
-                  </div>
-                </div>
-              )}
             </div>
-            <button className="primaryButton" onClick={() => void analyze()} disabled={loading || (source !== "demo" && !value.trim())}>
+            <button className="primaryButton" onClick={() => void analyze()} disabled={loading || !value.trim()}>
               {loading ? <><i className="spinner" />Reviewing...</> : <>{INPUT_COPY[source].button}<span>-&gt;</span></>}
             </button>
           </div>
           <div className="inputMeta" id="input-helper">
             <span>{INPUT_COPY[source].helper}</span>
-            <small>{source === "raw" && value ? `${value.length.toLocaleString()} characters` : source === "demo" ? "No model API call" : "Changed lines only"}</small>
+            <small>{source === "raw" && value ? `${value.length.toLocaleString()} characters` : "Changed lines only"}</small>
           </div>
-          <p className="providerDisclosure" id="provider-disclosure">{source === "demo"
-            ? "The seeded demo is evaluated entirely from repository fixtures. It does not use Gemini quota or submit code to a model."
-            : "Hybrid reviews send a bounded set of diff lines to Google Gemini. Free-tier data may be used to improve Google products; do not submit private code."}</p>
+          <p className="providerDisclosure" id="provider-disclosure">Hybrid reviews send a bounded set of diff lines to Google Gemini. Free-tier data may be used to improve Google products; do not submit private code.</p>
           {loading && (
             <div className="reviewProgress" role="status" aria-live="polite">
               <div className="progressCopy"><span className="progressMark"><i className="spinner" /></span><div><b>Review in progress</b><small>{REVIEW_STAGES[loadingStage]}</small></div></div>
@@ -477,7 +453,7 @@ export function ReviewWorkbench({ initialResult = null }: { initialResult?: Revi
           )}
           {error && (
             <div className="errorBanner" role="alert">
-              <div><b>{source === "github" ? "We couldn’t load that pull request." : source === "demo" ? "We couldn’t load the seeded demo." : "We couldn’t review that diff."}</b><span>{error}</span><small>{source === "github" ? "Check that the repository and PR are public, and that the URL ends in /pull/123." : source === "demo" ? "Retry once; the demo uses only bundled fixtures and does not require Gemini." : "Check that you pasted a unified git diff beginning with diff --git."}</small></div>
+              <div><b>{source === "github" ? "We couldn’t load that pull request." : "We couldn’t review that diff."}</b><span>{error}</span><small>{source === "github" ? "Check that the repository and PR are public, and that the URL ends in /pull/123." : "Check that you pasted a unified git diff beginning with diff --git."}</small></div>
               <div className="errorActions">
                 {source === "github" && <button onClick={switchToRawDiff}>Use raw diff instead</button>}
                 <button className="dismissError" onClick={() => setError("")} aria-label="Dismiss error">×</button>

@@ -133,11 +133,6 @@ button:disabled { cursor: not-allowed; opacity: .56; }
 
 .diffInput { min-height: 130px; width: 100%; resize: vertical; padding: 13px 14px; border: 1px solid #cfd6de; border-radius: 8px; outline: 0; background: #fafbfc; color: var(--ink); font: 11px/1.6 var(--mono); }
 .diffInput:focus { border-color: var(--blue); box-shadow: 0 0 0 3px #3767f414; }
-.demoPreview { min-height: 130px; display: flex; align-items: flex-start; gap: 14px; padding: 17px; border: 1px solid #cbd5f7; border-radius: 8px; background: linear-gradient(135deg, #f7f9ff, #f0f4ff); outline: 0; }
-.demoPreview:focus { border-color: var(--blue); box-shadow: 0 0 0 3px #3767f414; }
-.demoPreviewMark { display: grid; place-items: center; flex: 0 0 auto; width: 35px; height: 35px; border: 1px solid #9caceb; border-radius: 9px; background: #fff; color: #4864d7; font: 750 9px var(--mono); }
-.demoPreview b, .demoPreview small { display: block; }.demoPreview b { color: #27333e; font-size: 11px; }.demoPreview small { margin-top: 5px; color: #5268bd; font: 8px/1.5 var(--mono); }
-.demoPreview p { max-width: 720px; margin: 11px 0 0; color: #65717d; font-size: 10px; line-height: 1.55; }
 .spinner { display: inline-block; width: 12px; height: 12px; margin-right: 8px; border: 2px solid #ffffff66; border-top-color: white; border-radius: 50%; animation: spin .75s linear infinite; vertical-align: -2px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .errorBanner, .warningBanner { max-width: 1340px; margin: 0 auto; font-size: 10px; line-height: 1.5; }
@@ -290,11 +285,8 @@ button:disabled { cursor: not-allowed; opacity: .56; }
 .inputGuide { display: flex; align-items: flex-start; justify-content: space-between; gap: 32px; padding: 22px 22px 18px; border-bottom: 1px solid #e8ecf0; background: linear-gradient(135deg, #fff 0%, #fbfcff 70%, #f5f7ff 100%); }
 .inputGuide h2 { margin: 0; color: #202b35; font-size: 18px; letter-spacing: -.025em; }
 .inputGuide > div > p:last-child { max-width: 640px; margin: 7px 0 0; color: #6f7b87; font-size: 11px; line-height: 1.55; }
-.inputGuide ol { display: flex; flex: 0 0 auto; gap: 6px; margin: 1px 0 0; padding: 0; list-style: none; }
-.inputGuide li { display: flex; align-items: center; gap: 6px; padding: 7px 9px; border: 1px solid #e2e6eb; border-radius: 7px; background: #fff; color: #7a8692; font-size: 9px; font-weight: 680; white-space: nowrap; }
-.inputGuide li span { display: grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; background: #eef1f4; color: #687480; font: 700 8px var(--mono); }
-.inputGuide li.active { border-color: #c9d3fa; background: #f5f7ff; color: #3652bc; }
-.inputGuide li.active span { background: var(--blue); color: #fff; }
+.reviewFlowNote { flex: 0 0 260px; margin: 2px 0 0; padding: 10px 12px; border: 1px solid #dce3eb; border-radius: 8px; background: #fff; color: #66727e; font-size: 10px; line-height: 1.5; }
+.reviewFlowNote b { color: #34404b; }
 .inputField { min-width: 0; }
 .inputField > label { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin: 0 1px 7px; color: #34414d; font-size: 10px; }
 .inputField > label b { font-weight: 730; }
@@ -354,8 +346,7 @@ button:disabled { cursor: not-allowed; opacity: .56; }
 
 @media (max-width: 900px) {
   .inputGuide { flex-direction: column; gap: 17px; }
-  .inputGuide ol { width: 100%; }
-  .inputGuide li { flex: 1; justify-content: center; }
+  .reviewFlowNote { width: 100%; flex-basis: auto; }
   .outcomeCard { grid-template-columns: auto minmax(0, 1fr); }
   .outcomeActions { grid-column: 2; justify-content: start; }
   .outcomeActions small { text-align: left; }
@@ -363,9 +354,6 @@ button:disabled { cursor: not-allowed; opacity: .56; }
 
 @media (max-width: 620px) {
   .inputGuide { padding: 19px 18px 16px; }
-  .inputGuide ol { display: grid; grid-template-columns: repeat(3, 1fr); }
-  .inputGuide li { padding: 7px 5px; font-size: 8px; }
-  .inputGuide li span { display: none; }
   .inputField > label { align-items: flex-start; flex-direction: column; gap: 3px; }
   .reviewProgress { margin-left: 18px; margin-right: 18px; }
   .errorBanner { flex-direction: column; }
@@ -410,20 +398,13 @@ html[data-theme="dark"] .inputCard { box-shadow: 0 12px 38px #00000032; }
 html[data-theme="dark"] .inputGuide { border-color: var(--line); background: linear-gradient(135deg, #151f2a 0%, #121b25 70%, #172039 100%); }
 html[data-theme="dark"] .inputGuide h2 { color: var(--ink); }
 html[data-theme="dark"] .inputGuide > div > p:last-child { color: #9aa7b4; }
-html[data-theme="dark"] .inputGuide li { border-color: #2c3a49; background: #101821; color: #91a0ad; }
-html[data-theme="dark"] .inputGuide li span { background: #202c38; color: #aab6c1; }
-html[data-theme="dark"] .inputGuide li.active { border-color: #536aaa; background: #1a2540; color: #b9c7ff; }
-html[data-theme="dark"] .inputGuide li.active span { background: var(--blue); color: #0b1118; }
+html[data-theme="dark"] .reviewFlowNote { border-color: #2c3a49; background: #101821; color: #9aa7b4; }
+html[data-theme="dark"] .reviewFlowNote b { color: #dce4eb; }
 html[data-theme="dark"] .inputTabs { border-color: var(--line); }
 html[data-theme="dark"] .inputTab { color: #91a0ad; }
 html[data-theme="dark"] .inputTab.active { color: #eef3f8; }
 html[data-theme="dark"] .inputField > label { color: #c9d3dc; }
 html[data-theme="dark"] :where(.urlInput, .diffInput) { border-color: #344454; background: #0d151e; color: var(--ink); }
-html[data-theme="dark"] .demoPreview { border-color: #405484; background: linear-gradient(135deg, #151e35, #111a2d); }
-html[data-theme="dark"] .demoPreviewMark { border-color: #536aaa; background: #1a2540; color: #b9c7ff; }
-html[data-theme="dark"] .demoPreview b { color: #e1e8ee; }
-html[data-theme="dark"] .demoPreview small { color: #9eaff1; }
-html[data-theme="dark"] .demoPreview p { color: #9ba8b5; }
 html[data-theme="dark"] .urlInput input { color: var(--ink); }
 html[data-theme="dark"] :where(.urlInput input, .diffInput)::placeholder { color: #647382; }
 html[data-theme="dark"] .providerDisclosure { border-color: #5c4f30; background: #282416; color: #d3bc7f; }
