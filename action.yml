@@ -1,5 +1,5 @@
 name: "DiffGuard PR review"
-description: "Run an evidence-first DiffGuard review and publish a GitHub summary, JSON report, and optional PR comment."
+description: "Run an evidence-first DiffGuard review with annotations, JSON/SARIF reports, a job summary, and an optional PR comment."
 author: "DiffGuard"
 
 branding:
@@ -30,6 +30,10 @@ inputs:
     description: "Workspace-relative path for the complete JSON review report."
     required: false
     default: "diffguard-review.json"
+  sarif-path:
+    description: "Workspace-relative path for the approved-findings SARIF report."
+    required: false
+    default: "diffguard-results.sarif"
 
 outputs:
   review-id:
@@ -44,6 +48,9 @@ outputs:
   report-path:
     description: "Absolute path to the JSON review report."
     value: ${{ steps.review.outputs.report-path }}
+  sarif-path:
+    description: "Absolute path to the SARIF report."
+    value: ${{ steps.review.outputs.sarif-path }}
   comment-status:
     description: "Whether the PR comment was created, updated, or skipped."
     value: ${{ steps.review.outputs.comment-status }}
@@ -61,4 +68,5 @@ runs:
         DIFFGUARD_COMMENT: ${{ inputs.comment }}
         DIFFGUARD_FAIL_ON: ${{ inputs.fail-on }}
         DIFFGUARD_REPORT_PATH: ${{ inputs.report-path }}
+        DIFFGUARD_SARIF_PATH: ${{ inputs.sarif-path }}
       run: node "$GITHUB_ACTION_PATH/scripts/github-review.mjs"

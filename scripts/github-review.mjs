@@ -5,13 +5,66 @@ import { pathToFileURL } from "node:url";
 const COMMENT_MARKER = "<!-- diffguard-review -->";
 const RISK_RANK = Object.freeze({ clear: 0, low: 1, medium: 2, high: 3, critical: 4 });
 const ALLOWED_FAIL_LEVELS = new Set(["never", "low", "medium", "high", "critical"]);
+const MAX_WORKFLOW_ANNOTATIONS = 10;
 
 function commandValue(value) {
   return String(value).replace(/[\r\n]/g, " ").slice(0, 2_000);
 }
 
+function boundedText(value, maximum, fallback = "") {
+  const text = String(value ?? fallback).trim();
+  return (text || fallback).slice(0, maximum);
+}
+
+export function escapeWorkflowCommandData(value) {
+  return String(value).replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
+}
+
+export function escapeWorkflowCommandProperty(value) {
+  return escapeWorkflowCommandData(value).replace(/:/g, "%3A").replace(/,/g, "%2C");
+}
+
+function workflowCommand(kind, message, properties = {}) {
+  const metadata = Object.entries(properties)
+    .filter(([, value]) => value !== undefined && value !== null && String(value) !== "")
+    .map(([name, value]) => `${name}=${escapeWorkflowCommandProperty(value)}`)
+    .join(",");
+  return `::${kind}${metadata ? ` ${metadata}` : ""}::${escapeWorkflowCommandData(message)}`;
+}
+
 function annotation(kind, message) {
-  console.log(`::${kind}::${commandValue(message)}`);
+  console.log(workflowCommand(kind, boundedText(message, 2_000)));
+}
+
+function annotationLevel(severity) {
+  if (severity === "critical" || severity === "high") return "error";
+  if (severity === "medium") return "warning";
+  return "notice";
+}
+
+function primaryEvidence(finding) {
+  return Array.isArray(finding?.evidence) && finding.evidence[0] ? finding.evidence[0] : {};
+}
+
+export function buildFindingAnnotations(findings) {
+  if (!Array.isArray(findings)) return [];
+  return findings.slice(0, MAX_WORKFLOW_ANNOTATIONS).map((finding) => {
+    const evidence = primaryEvidence(finding);
+    const title = boundedText(finding?.title, 160, "DiffGuard finding");
+    const ruleId = boundedText(finding?.ruleId, 80, "unknown-rule");
+    const evidenceId = boundedText(evidence?.lineId, 120, "unknown-evidence");
+    const description = boundedText(finding?.description, 500, title);
+    const suggestedFix = boundedText(finding?.suggestedFix, 400);
+    const filePath = boundedText(evidence?.filePath, 500);
+    const line = Number.isSafeInteger(evidence?.newLine) && evidence.newLine > 0
+      ? evidence.newLine
+      : undefined;
+    const generalLocation = filePath && !line ? ` Location: ${filePath} (deleted or non-added line).` : "";
+    const fix = suggestedFix ? ` Suggested fix: ${suggestedFix}` : "";
+    const message = `${description}${fix} Rule: ${ruleId}. Evidence: ${evidenceId}.${generalLocation}`;
+    const properties = filePath && line ? { file: filePath, line, title } : { title };
+    return workflowCommand(annotationLevel(finding?.severity), boundedText(message, 1_500), properties);
+  });
 }
 
 function markdownText(value) {
@@ -51,16 +104,24 @@ export function resolvePullRequestNumber(explicitValue, eventPayload) {
   return parsePullRequestNumber(candidate);
 }
 
-export function resolveReportPath(workspace, requestedPath) {
+function resolveWorkspaceOutputPath(workspace, requestedPath, defaultPath, inputName) {
   const root = resolve(workspace);
-  const target = resolve(root, String(requestedPath || "diffguard-review.json"));
+  const target = resolve(root, String(requestedPath || defaultPath));
   const pathFromRoot = relative(root, target);
   const outsideWorkspace = pathFromRoot === ".." || pathFromRoot.startsWith(`..${sep}`) || isAbsolute(pathFromRoot);
   if (!pathFromRoot || outsideWorkspace) {
-    throw new Error("report-path must resolve to a file inside GITHUB_WORKSPACE.");
+    throw new Error(`${inputName} must resolve to a file inside GITHUB_WORKSPACE.`);
   }
-  if (/[\r\n]/.test(target)) throw new Error("report-path cannot contain line breaks.");
+  if (/[\r\n]/.test(target)) throw new Error(`${inputName} cannot contain line breaks.`);
   return target;
+}
+
+export function resolveReportPath(workspace, requestedPath) {
+  return resolveWorkspaceOutputPath(workspace, requestedPath, "diffguard-review.json", "report-path");
+}
+
+export function resolveSarifPath(workspace, requestedPath) {
+  return resolveWorkspaceOutputPath(workspace, requestedPath, "diffguard-results.sarif", "sarif-path");
 }
 
 export function shouldFailReview(riskLevel, failOn) {
@@ -104,7 +165,7 @@ export function buildReviewMarkdown(result, pullRequestUrl) {
         "| Severity | Finding | Evidence | Signal | Confidence |",
         "| --- | --- | --- | --- | ---: |",
         ...rows,
-        ...(omitted > 0 ? [`\n_${omitted} additional findings are available in the JSON artifact._`] : []),
+        ...(omitted > 0 ? [`\n_${omitted} additional findings are available in the JSON report._`] : []),
       ].join("\n")
     : "No supported findings were returned. A clear result is not a guarantee that the change is safe.";
 
@@ -125,10 +186,84 @@ export function buildReviewMarkdown(result, pullRequestUrl) {
     "",
     table,
     "",
-    `[Open pull request](${pullRequestUrl}) · Full structured evidence is attached to this workflow run as JSON.`,
+    `[Open pull request](${pullRequestUrl}) · JSON and SARIF reports are available to later workflow steps.`,
     "",
     "_DiffGuard validates line references and exact quotes; it does not prove semantic correctness or the absence of vulnerabilities._",
   ].join("\n");
+}
+
+function sarifLevel(severity) {
+  if (severity === "critical" || severity === "high") return "error";
+  if (severity === "medium") return "warning";
+  return "note";
+}
+
+function safeArtifactUri(value) {
+  const path = boundedText(value, 500).replace(/\\/g, "/").replace(/^\.\//, "");
+  if (!path || path.startsWith("/") || /^[A-Za-z]:/.test(path) || /^[a-z][a-z0-9+.-]*:\/\//i.test(path)) return undefined;
+  if (path.split("/").some((segment) => segment === "..")) return undefined;
+  return path.split("/").map((segment) => encodeURIComponent(segment)).join("/");
+}
+
+export function buildSarifLog(result) {
+  const findings = Array.isArray(result?.findings) ? result.findings : [];
+  const rules = [];
+  const ruleIndexes = new Map();
+  const results = findings.map((finding) => {
+    const ruleId = boundedText(finding?.ruleId, 80, "DG-UNKNOWN");
+    if (!ruleIndexes.has(ruleId)) {
+      ruleIndexes.set(ruleId, rules.length);
+      rules.push({
+        id: ruleId,
+        shortDescription: { text: boundedText(finding?.title, 160, "DiffGuard finding") },
+        fullDescription: { text: boundedText(finding?.description, 1_000, "DiffGuard supported finding") },
+        properties: {
+          category: boundedText(finding?.category, 80, "unknown"),
+          source: finding?.source === "llm" ? "llm" : "deterministic",
+        },
+      });
+    }
+
+    const evidence = primaryEvidence(finding);
+    const artifactUri = safeArtifactUri(evidence?.filePath);
+    const startLine = Number.isSafeInteger(evidence?.newLine) && evidence.newLine > 0
+      ? evidence.newLine
+      : undefined;
+    const location = artifactUri && startLine
+      ? [{ physicalLocation: { artifactLocation: { uri: artifactUri }, region: { startLine } } }]
+      : undefined;
+
+    return {
+      ruleId,
+      ruleIndex: ruleIndexes.get(ruleId),
+      level: sarifLevel(finding?.severity),
+      message: {
+        text: `${boundedText(finding?.title, 160, "DiffGuard finding")}: ${boundedText(finding?.description, 1_000, "Supported by validated diff evidence.")}`,
+      },
+      ...(location ? { locations: location } : {}),
+      properties: {
+        confidence: Number.isFinite(finding?.confidence) ? finding.confidence : undefined,
+        evidenceId: boundedText(evidence?.lineId, 120, "unknown-evidence"),
+        severity: boundedText(finding?.severity, 20, "unknown"),
+        source: finding?.source === "llm" ? "llm" : "deterministic",
+      },
+    };
+  });
+
+  return {
+    $schema: "https://json.schemastore.org/sarif-2.1.0.json",
+    version: "2.1.0",
+    runs: [{
+      tool: {
+        driver: {
+          name: "DiffGuard",
+          informationUri: "https://github.com/kevingerard2819/diffguard",
+          rules,
+        },
+      },
+      results,
+    }],
+  };
 }
 
 function loadEventPayload(eventPath) {
@@ -231,6 +366,7 @@ export async function main() {
   const shouldComment = parseBoolean(process.env.DIFFGUARD_COMMENT || "true", "comment");
   const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
   const reportPath = resolveReportPath(workspace, process.env.DIFFGUARD_REPORT_PATH);
+  const sarifPath = resolveSarifPath(workspace, process.env.DIFFGUARD_SARIF_PATH);
 
   console.log(`Requesting DiffGuard review for ${pullRequestUrl}`);
   const result = await requestReview(baseUrl, pullRequestUrl);
@@ -238,7 +374,10 @@ export async function main() {
 
   mkdirSync(dirname(reportPath), { recursive: true });
   writeFileSync(reportPath, `${JSON.stringify(result, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+  mkdirSync(dirname(sarifPath), { recursive: true });
+  writeFileSync(sarifPath, `${JSON.stringify(buildSarifLog(result), null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${markdown}\n`, "utf8");
+  buildFindingAnnotations(result.findings).forEach((command) => console.log(command));
 
   let commentStatus = "skipped-disabled";
   const token = String(process.env.DIFFGUARD_GITHUB_TOKEN || "").trim();
@@ -265,6 +404,7 @@ export async function main() {
   writeOutput("risk-score", result.riskScore);
   writeOutput("risk-level", result.riskLevel);
   writeOutput("report-path", reportPath);
+  writeOutput("sarif-path", sarifPath);
   writeOutput("comment-status", commentStatus);
 
   console.log(`DiffGuard review ${result.reviewId}: ${result.riskLevel} (${result.riskScore}/100), ${result.findings.length} findings.`);

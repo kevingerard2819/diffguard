@@ -72,7 +72,7 @@ DiffGuard includes a deliberately small operational layer that can be explained 
 - `codeql.yml` scans JavaScript and TypeScript on pushes, pull requests, and a weekly schedule.
 - Dependabot groups weekly production, development, and GitHub Actions updates.
 - `deployment-smoke.yml` validates the deployed `/api/health` readiness contract after successful GitHub deployments or by manual dispatch.
-- The root `action.yml` is a reusable composite action. It sends only a public PR URL to DiffGuard, writes the validated result to the GitHub job summary, saves the complete JSON report, optionally upserts one PR comment, and can enforce an explicit risk threshold.
+- The root `action.yml` is a reusable composite action. It sends only a public PR URL to DiffGuard, emits up to ten escaped workflow annotations from final findings, writes the validated result to the GitHub job summary, saves JSON and SARIF reports, optionally upserts one PR comment, and can enforce an explicit risk threshold.
 
 The repository's own `DiffGuard PR review` workflow is manually dispatched with a PR number. It checks out the trusted default branch before running the local action, so pull-request changes cannot replace action code while a write-capable token is present.
 
@@ -89,13 +89,14 @@ permissions:
   contents: read
   issues: write
   pull-requests: write
+  security-events: write
 
 jobs:
   review:
     runs-on: ubuntu-latest
     steps:
       - id: diffguard
-        uses: kevingerard2819/diffguard@v1
+        uses: kevingerard2819/diffguard@v1.1.0
         with:
           diffguard-url: ${{ vars.DIFFGUARD_URL }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -103,16 +104,25 @@ jobs:
           comment: true
           fail-on: high
           report-path: diffguard-review.json
+          sarif-path: diffguard-results.sarif
+      - name: Upload DiffGuard SARIF
+        if: always() && github.event.pull_request.head.repo.full_name == github.repository
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: diffguard-results.sarif
+          category: diffguard
       - name: Upload DiffGuard evidence report
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: diffguard-review-${{ github.run_id }}
-          path: diffguard-review.json
+          path: |
+            diffguard-review.json
+            diffguard-results.sarif
           if-no-files-found: warn
 ```
 
-The composite action writes the JSON report; the separate `upload-artifact` step makes it downloadable from the workflow run. For forked pull requests, GitHub may restrict comment permissions. The action treats a comment failure as non-fatal: the evidence report and job summary remain available. The GitHub token is used only against GitHub's comment API and is never sent to the DiffGuard deployment.
+The composite action writes JSON and SARIF reports; the separate upload steps make them available to GitHub Code Scanning and as downloadable workflow artifacts. SARIF upload is skipped for forked pull requests because GitHub restricts their token. Comment failure remains non-fatal: annotations, reports, and the job summary remain available. The GitHub token is used only against GitHub's comment API and is never sent to the DiffGuard deployment.
 
 ## Deploy to Vercel
 
@@ -142,6 +152,7 @@ Severity weights are critical `42`, high `26`, medium `13`, and low `5`. Source 
 - Free-tier Gemini requests must contain only public or non-sensitive code. DiffGuard does not persist submitted source, but Google's free-tier data terms still apply to the bounded lines sent for live review.
 - Public GitHub requests are unauthenticated and therefore subject to GitHub rate limits; raw-diff input is the fallback.
 - Pattern checks are deliberately precise heuristics rather than exhaustive analysis. A clear result is not a guarantee that code is safe or defect-free.
+- DiffGuard's pipeline is language-agnostic for text-based Git diffs, but review coverage is strongest for the languages and vulnerability patterns represented in its deterministic rules and evaluation fixtures. Gemini can review many languages with varying, unguaranteed accuracy; binary files, oversized diffs, and specialized generated formats remain outside the supported boundary.
 - Exact citation integrity does not establish semantic correctness; an approved model finding can still misunderstand a real line.
 - Adversarial model-boundary fixtures remain isolated to the evaluation page and automated tests; they are never presented as live-model output.
 - DiffGuard does not execute submitted code and does not fetch arbitrary URLs.

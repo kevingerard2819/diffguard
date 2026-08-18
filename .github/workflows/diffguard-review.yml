@@ -23,6 +23,7 @@ permissions:
   contents: read
   issues: write
   pull-requests: write
+  security-events: write
 
 concurrency:
   group: diffguard-pr-${{ inputs.pr_number }}
@@ -57,11 +58,20 @@ jobs:
           comment: ${{ inputs.comment }}
           fail-on: ${{ inputs.fail_on }}
           report-path: diffguard-review.json
+          sarif-path: diffguard-results.sarif
+      - name: Upload DiffGuard SARIF to code scanning
+        if: always() && hashFiles('diffguard-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: diffguard-results.sarif
+          category: diffguard
       - name: Upload structured review evidence
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: diffguard-pr-${{ inputs.pr_number }}-${{ github.run_id }}
-          path: diffguard-review.json
+          path: |
+            diffguard-review.json
+            diffguard-results.sarif
           if-no-files-found: warn
           retention-days: 30
