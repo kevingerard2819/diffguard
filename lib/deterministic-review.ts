@@ -192,6 +192,6 @@ export function scoreFindings(findings: Finding[]): { riskScore: number; riskLev
       * SOURCE_WEIGHTS[finding.source],
     0,
   ))));
-  const riskLevel: RiskLevel = riskScore >= 80 ? "critical" : riskScore >= 55 ? "high" : riskScore >= 25 ? "medium" : "low";
+  const riskLevel: RiskLevel = riskScore >= 80 ? "critical" : riskScore >= 55 ? "high" : riskScore >= 20 ? "medium" : "low";
   return { riskScore, riskLevel };
 }

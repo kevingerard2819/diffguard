@@ -51,6 +51,14 @@ describe("review service", () => {
       .toEqual(scoreFindings([finding]));
   });
 
+  it("does not label a calibrated high-severity rule match as low overall risk", async () => {
+    const result = await reviewDiff(DEMO_DIFF, {
+      source: { kind: "demo", label: "Severity floor test" },
+      useLlm: false,
+    });
+    expect(scoreFindings([result.findings[0]])).toEqual({ riskScore: 24, riskLevel: "medium" });
+  });
+
   it("merges deterministic and model findings for the same category and primary line", async () => {
     const result = await reviewDiff(DEMO_DIFF, {
       source: { kind: "demo", label: "Cross-source deduplication" },
