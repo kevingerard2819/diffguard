@@ -8,6 +8,7 @@ import {
   formatAssistantAnswer,
   type AssistantQuestionId,
 } from "@/lib/review-assistant";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 type InputSource = "github" | "raw";
 
@@ -399,6 +400,7 @@ export function ReviewWorkbench({ initialResult = null }: { initialResult?: Revi
           <div><p className="eyebrow">Evidence-first review</p><h1>Catch risky changes before they merge.</h1></div>
           <div className="topActions">
             <span className="modelBadge"><span /> {result ? (result.analysisMode === "hybrid" ? "Gemini + rules" : "deterministic") : "guardrails ready"}</span>
+            <ThemeToggle />
             <a className="ghostButton" href="/evaluation">View evals</a>
           </div>
         </header>

@@ -1,4 +1,5 @@
 import { runEvaluation } from "@/lib/evaluation";
+import { ThemeToggle } from "@/components/theme-toggle";
 import Link from "next/link";
 
 function percent(value: number) { return `${Math.round(value * 100)}%`; }
@@ -13,7 +14,7 @@ export default function EvaluationPage() {
     <main className="evalShell">
       <header className="evalTopbar">
         <Link className="brand lightBrand" href="/"><span className="brandMark">DG</span><span>DiffGuard</span></Link>
-        <Link className="ghostButton" href="/">Back to reviewer</Link>
+        <div className="evalTopActions"><ThemeToggle /><Link className="ghostButton" href="/">Back to reviewer</Link></div>
       </header>
       <section className="evalHero">
         <p className="eyebrow">Regression gate</p><h1>Guardrails you can measure.</h1>

@@ -371,3 +371,134 @@ button:disabled { cursor: not-allowed; opacity: .56; }
   .outcomeActions button { min-height: 39px; }
   .advancedPanel > summary { align-items: flex-start; }
 }
+
+/* Persistent light/dark theme */
+.themeToggle { min-height: 35px; display: inline-flex; align-items: center; gap: 7px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: #ffffffa8; color: #38424e; font-size: 10px; font-weight: 700; }
+.themeToggle:hover { border-color: #b9c6f5; color: var(--blue); }
+.themeToggle:focus-visible { outline: 3px solid #3767f432; outline-offset: 2px; }
+.themeToggleIcon { position: relative; display: grid; place-items: center; width: 16px; height: 16px; font-size: 15px; line-height: 1; }
+.themeToggleLabel { min-width: 28px; text-align: left; }
+.sunIcon, .lightLabel { display: none; }
+.evalTopActions { display: flex; align-items: center; gap: 9px; }
+
+html[data-theme="dark"] {
+  --bg: #0b1118;
+  --surface: #121b25;
+  --ink: #e8eef5;
+  --muted: #94a1ae;
+  --line: #283645;
+  --blue: #8199ff;
+  --blue-dark: #6f88f2;
+  --navy: #080d13;
+  --danger: #ff7770;
+  --danger-soft: #3a2022;
+  --success: #58d3a9;
+  --success-soft: #14362d;
+  color-scheme: dark;
+}
+html[data-theme="dark"] .moonIcon, html[data-theme="dark"] .darkLabel { display: none; }
+html[data-theme="dark"] .sunIcon, html[data-theme="dark"] .lightLabel { display: inline; }
+html[data-theme="dark"] body { background: var(--bg); }
+html[data-theme="dark"] :where(.modelBadge, .ghostButton, .themeToggle) { border-color: var(--line); background: #141e29; color: #c4ced8; }
+html[data-theme="dark"] :where(.modelBadge, .ghostButton, .themeToggle):hover { border-color: #52658b; color: #fff; }
+html[data-theme="dark"] .inputCard { box-shadow: 0 12px 38px #00000032; }
+html[data-theme="dark"] .inputGuide { border-color: var(--line); background: linear-gradient(135deg, #151f2a 0%, #121b25 70%, #172039 100%); }
+html[data-theme="dark"] .inputGuide h2 { color: var(--ink); }
+html[data-theme="dark"] .inputGuide > div > p:last-child { color: #9aa7b4; }
+html[data-theme="dark"] .inputGuide li { border-color: #2c3a49; background: #101821; color: #91a0ad; }
+html[data-theme="dark"] .inputGuide li span { background: #202c38; color: #aab6c1; }
+html[data-theme="dark"] .inputGuide li.active { border-color: #536aaa; background: #1a2540; color: #b9c7ff; }
+html[data-theme="dark"] .inputGuide li.active span { background: var(--blue); color: #0b1118; }
+html[data-theme="dark"] .inputTabs { border-color: var(--line); }
+html[data-theme="dark"] .inputTab { color: #91a0ad; }
+html[data-theme="dark"] .inputTab.active { color: #eef3f8; }
+html[data-theme="dark"] .inputField > label { color: #c9d3dc; }
+html[data-theme="dark"] :where(.urlInput, .diffInput) { border-color: #344454; background: #0d151e; color: var(--ink); }
+html[data-theme="dark"] .urlInput input { color: var(--ink); }
+html[data-theme="dark"] :where(.urlInput input, .diffInput)::placeholder { color: #647382; }
+html[data-theme="dark"] .providerDisclosure { border-color: #5c4f30; background: #282416; color: #d3bc7f; }
+html[data-theme="dark"] .reviewEmptyState { border-color: var(--line); background: linear-gradient(135deg, #121b25 0%, #101923 58%, #172039 100%); box-shadow: 0 14px 40px #0000002e; }
+html[data-theme="dark"] .emptyStateMark { border-color: #536aa5; background: #1b2540; color: #b3c1ff; }
+html[data-theme="dark"] .emptyStateIntro > p:last-child { color: #9aa7b4; }
+html[data-theme="dark"] .metrics { box-shadow: 0 10px 30px #00000025; }
+html[data-theme="dark"] .metrics article { border-color: var(--line); }
+html[data-theme="dark"] .panel { box-shadow: 0 10px 32px #00000024; }
+html[data-theme="dark"] .panelHeader { border-color: var(--line); }
+html[data-theme="dark"] .changeCount { background: #202c38; color: #b9c5d0; }
+html[data-theme="dark"] .codeFrame { background: #0d151e; }
+html[data-theme="dark"] .codeLine > span { border-color: #263442; color: #697887; }
+html[data-theme="dark"] .codeLine code { color: #cbd5de; }
+html[data-theme="dark"] .codeLine.added { background: #122b24; }
+html[data-theme="dark"] .codeLine.removed { background: #321d20; }
+html[data-theme="dark"] .codeLine.highlighted { background: #352b19; }
+html[data-theme="dark"] .findingPanel > p { color: #aab5c0; }
+html[data-theme="dark"] .evidenceBox { border-color: #71413f; background: #26191b; }
+html[data-theme="dark"] .evidenceBox > div, html[data-theme="dark"] .evidenceBox code + code { border-color: #573033; color: #e2aaa6; }
+html[data-theme="dark"] .evidenceBox code { color: #f0c3bf; }
+html[data-theme="dark"] .evidenceBox em { color: #dc918b; }
+html[data-theme="dark"] .recommendation { background: #18213b; }
+html[data-theme="dark"] .recommendation p { color: #bcc7d1; }
+html[data-theme="dark"] .findingPanel footer { border-color: var(--line); }
+html[data-theme="dark"] :where(.testsBlock, .findingAssistant) { border-color: var(--line); background: #0f1821; }
+html[data-theme="dark"] .testsBlock summary { color: #c4ced7; }
+html[data-theme="dark"] .testsBlock ul { color: #9ca9b5; }
+html[data-theme="dark"] .findingAssistant > header { border-color: var(--line); background: #151f2a; }
+html[data-theme="dark"] .findingAssistant > header b { color: var(--ink); }
+html[data-theme="dark"] .assistantPrompts button { border-color: #344454; background: #151f2a; color: #aab6c1; }
+html[data-theme="dark"] .assistantPrompts button.active { border-color: #667bd0; background: #202b4b; color: #c7d1ff; box-shadow: none; }
+html[data-theme="dark"] .copyAnswer { border-color: #344454; background: #151f2a; color: #b8c3cd; }
+html[data-theme="dark"] .warningBanner { border-color: #66552c; background: #2b2517; color: #dbc47f; }
+html[data-theme="dark"] .errorBanner { border-color: #67373a; color: #ffc0bc; }
+html[data-theme="dark"] .errorBanner span, html[data-theme="dark"] .errorBanner small { color: #e9a19c; }
+html[data-theme="dark"] .errorActions button { border-color: #7d494b; background: #301d20; color: #ffb3ae; }
+html[data-theme="dark"] .reviewProgress { border-color: #405484; background: #151e35; color: #d2dcff; }
+html[data-theme="dark"] .progressSteps i { background: #2d394a; }
+html[data-theme="dark"] .outcomeCard { border-color: var(--line); background: var(--surface); box-shadow: 0 12px 36px #00000028; }
+html[data-theme="dark"] .outcomeCopy h2 { color: var(--ink); }
+html[data-theme="dark"] .outcomeCopy > p:not(.eyebrow) { color: #a4b0bb; }
+html[data-theme="dark"] .riskPill { background: #24303b; color: #c5d0da; }
+html[data-theme="dark"] .riskPill:is(.risk-critical, .risk-high) { background: #3a2022; color: #ff9d96; }
+html[data-theme="dark"] .riskPill.risk-medium { background: #352d18; color: #e7c76b; }
+html[data-theme="dark"] .riskPill.risk-low { background: #14362d; color: #8ce2c3; }
+html[data-theme="dark"] .outcomeActions button { border-color: #344454; background: #0f1821; color: #bdc8d2; }
+html[data-theme="dark"] .advancedPanel { border-color: var(--line); background: var(--surface); }
+html[data-theme="dark"] .advancedPanel > summary b { color: #d8e0e7; }
+html[data-theme="dark"] .advancedPanel[open] > summary { border-color: var(--line); }
+html[data-theme="dark"] .boundaryInspector { border-color: var(--line); background: var(--surface); }
+html[data-theme="dark"] .boundaryInspector > header p:last-child { color: #9ca9b5; }
+html[data-theme="dark"] .boundaryMode { border-color: #384858; background: #18232e; color: #aab7c2; }
+html[data-theme="dark"] .boundarySummary { border-color: var(--line); }
+html[data-theme="dark"] .boundarySummary span { border-color: var(--line); color: #99a6b2; }
+html[data-theme="dark"] .boundarySummary b { color: #e6edf3; }
+html[data-theme="dark"] .boundaryTabs { background: #0c141c; }
+html[data-theme="dark"] .boundaryTabs button.active { background: #22303c; color: #f0f4f8; }
+html[data-theme="dark"] :where(.approvedCandidate, .rejectedCandidate, .rawCandidates article) { border-color: var(--line); background: #0f1821; }
+html[data-theme="dark"] :where(.approvedCandidate, .rejectedCandidate, .rawCandidates article) b { color: #dce4eb; }
+html[data-theme="dark"] .rejectedCandidate code { background: #281b1e; color: #ef928c; }
+html[data-theme="dark"] .fileTabs button { border-color: var(--line); background: #121b25; color: #a3afba; }
+html[data-theme="dark"] .fileTabs button.active { border-color: #5c70b5; background: #1c2744; color: #bdc9ff; }
+html[data-theme="dark"] .findingRail button { border-color: var(--line); background: #121b25; }
+html[data-theme="dark"] .findingRail button:hover, html[data-theme="dark"] .findingRail button.active { border-color: #5268aa; background: #19243d; }
+html[data-theme="dark"] .sourceBadge { background: #24303b; color: #aebac5; }
+html[data-theme="dark"] :where(.severity-high, .severity-medium, .severity-low) .severityIcon { background: #2c2530; }
+html[data-theme="dark"] .resultMeta b { color: #bac5cf; }
+
+html[data-theme="dark"] .evalShell { background: var(--bg); }
+html[data-theme="dark"] .evalTopbar { border-color: var(--line); }
+html[data-theme="dark"] .evalHero > p:not(.eyebrow), html[data-theme="dark"] .evalNotes p { color: #9daab5; }
+html[data-theme="dark"] .gateStatus { border-color: #34745f; background: #14362d; color: #9ce8cd; }
+html[data-theme="dark"] :where(.evalMetrics, .fixturePanel, .evalNotes article) { border-color: var(--line); background: var(--surface); }
+html[data-theme="dark"] .evalMetrics article, html[data-theme="dark"] .fixturePanel > header, html[data-theme="dark"] :where(.fixtureRow, .boundaryRow) { border-color: var(--line); }
+html[data-theme="dark"] .fixtureHeader, html[data-theme="dark"] .boundaryHeader { background: #0f1821; color: #95a3af; }
+html[data-theme="dark"] :where(.fixtureRow, .boundaryRow) { color: #b4c0ca; }
+html[data-theme="dark"] :where(.fixtureRow, .boundaryRow) b { color: #e1e8ee; }
+html[data-theme="dark"] :where(.fixtureRow, .boundaryRow) code { color: #aab7c3; }
+html[data-theme="dark"] .labelPill { background: #24303b; color: #bdc7d0; }
+html[data-theme="dark"] .labelPill.security { background: #3a2022; color: #ff9d96; }
+html[data-theme="dark"] .labelPill.prompt-injection { background: #352d18; color: #e7c76b; }
+
+@media (max-width: 520px) {
+  .themeToggleLabel { display: none; }
+  .themeToggle { width: 36px; justify-content: center; padding: 0; }
+  .evalTopActions { gap: 6px; }
+}
