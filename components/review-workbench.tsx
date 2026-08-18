@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { DiffFile, Finding, ReviewResult } from "@/lib/domain";
 import {
   answerFindingQuestion,
@@ -11,16 +11,56 @@ import {
 
 type InputSource = "github" | "raw";
 
-const INPUT_COPY: Record<InputSource, { button: string; helper: string }> = {
+const INPUT_COPY: Record<
+  InputSource,
+  { button: string; helper: string; label: string; format: string }
+> = {
   github: {
-    button: "Analyze pull request",
+    button: "Review pull request",
     helper: "Public repositories only; the server constructs the GitHub API request safely.",
+    label: "Public GitHub pull request",
+    format: "Must include /pull/123",
   },
   raw: {
-    button: "Analyze raw diff",
+    button: "Review raw diff",
     helper: "Paste a public or non-sensitive unified diff up to 500 KB. Source content is always untrusted data.",
+    label: "Unified git diff",
+    format: "Starts with diff --git",
   },
 };
+
+const REVIEW_STAGES = [
+  "Reading and parsing the diff",
+  "Assigning trusted evidence lines",
+  "Running security and quality checks",
+  "Validating supported findings",
+] as const;
+
+type ReportAction = "idle" | "copied" | "downloaded" | "failed";
+
+function buildReviewSummary(result: ReviewResult): string {
+  const findings = result.findings.length
+    ? result.findings.map(
+        (finding, index) =>
+          `${index + 1}. [${finding.severity.toUpperCase()}] ${finding.title}\n` +
+          `   ${finding.evidence[0]?.filePath ?? "unknown file"}:${finding.evidence[0]?.newLine ?? "changed line"} · confidence ${Math.round(finding.confidence * 100)}%\n` +
+          `   ${finding.description}`,
+      )
+    : ["No supported findings were returned."];
+
+  return [
+    `DiffGuard review ${result.reviewId}`,
+    `Risk: ${result.riskLevel.toUpperCase()} (${result.riskScore}/100)`,
+    `Analysis: ${result.analysisMode === "hybrid" ? "Deterministic checks + Gemini" : "Deterministic checks"}`,
+    `Files: ${result.summary.filesChanged} · Added lines: ${result.summary.additions} · Findings: ${result.findings.length}`,
+    `Evidence coverage: ${Math.round(result.guardrails.evidenceCoverage * 100)}%`,
+    "",
+    "Findings",
+    ...findings,
+    "",
+    "DiffGuard reviews changed code only; a clear result is not a guarantee that the repository is vulnerability-free.",
+  ].join("\n");
+}
 
 function severityRank(severity: Finding["severity"]): number {
   return { critical: 4, high: 3, medium: 2, low: 1 }[severity];
@@ -203,12 +243,17 @@ function BoundaryInspector({ result }: { result: ReviewResult }) {
 
 export function ReviewWorkbench({ initialResult = null }: { initialResult?: ReviewResult | null }) {
   const [source, setSource] = useState<InputSource>("github");
-  const [value, setValue] = useState("");
+  const [inputs, setInputs] = useState<Record<InputSource, string>>({ github: "", raw: "" });
   const [result, setResult] = useState<ReviewResult | null>(initialResult);
   const [selectedFindingId, setSelectedFindingId] = useState(initialResult?.findings[0]?.id || "");
   const [selectedFilePath, setSelectedFilePath] = useState(initialResult?.files[0]?.path || "");
   const [loading, setLoading] = useState(false);
+  const [loadingStage, setLoadingStage] = useState(0);
   const [error, setError] = useState("");
+  const [reportAction, setReportAction] = useState<ReportAction>("idle");
+  const resultHeadingRef = useRef<HTMLElement | null>(null);
+  const shouldFocusResult = useRef(false);
+  const value = inputs[source];
 
   const sortedFindings = useMemo(
     () => result ? [...result.findings].sort((a, b) => severityRank(b.severity) - severityRank(a.severity)) : [],
@@ -220,18 +265,40 @@ export function ReviewWorkbench({ initialResult = null }: { initialResult?: Revi
     || result?.files.find((file) => file.path === selectedFilePath)
     || result?.files[0];
 
+  useEffect(() => {
+    if (!loading) return;
+    const timer = window.setInterval(() => {
+      setLoadingStage((current) => Math.min(current + 1, REVIEW_STAGES.length - 1));
+    }, 1_800);
+    return () => window.clearInterval(timer);
+  }, [loading]);
+
+  useEffect(() => {
+    if (!result || !shouldFocusResult.current) return;
+    shouldFocusResult.current = false;
+    const timer = window.setTimeout(() => {
+      resultHeadingRef.current?.focus({ preventScroll: true });
+      resultHeadingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [result]);
+
   async function analyze(nextSource: InputSource = source) {
+    const submittedValue = inputs[nextSource];
     setLoading(true);
+    setLoadingStage(0);
     setError("");
+    setReportAction("idle");
     try {
       const response = await fetch("/api/review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ source: nextSource, value }),
+        body: JSON.stringify({ source: nextSource, value: submittedValue }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "Review failed.");
       const nextResult = payload as ReviewResult;
+      shouldFocusResult.current = true;
       setResult(nextResult);
       setSelectedFindingId(nextResult.findings[0]?.id || "");
       setSelectedFilePath(nextResult.files[0]?.path || "");
@@ -247,13 +314,78 @@ export function ReviewWorkbench({ initialResult = null }: { initialResult?: Revi
     setError("");
   }
 
+  function updateValue(nextValue: string) {
+    setInputs((current) => ({ ...current, [source]: nextValue }));
+    if (error) setError("");
+  }
+
+  function focusReviewInput() {
+    window.setTimeout(() => document.getElementById("review-input")?.focus(), 0);
+  }
+
+  function handleFindingsNavigation(event: React.MouseEvent<HTMLAnchorElement>) {
+    if (result) return;
+    event.preventDefault();
+    focusReviewInput();
+  }
+
+  function switchToRawDiff() {
+    selectSource("raw");
+    focusReviewInput();
+  }
+
+  async function copySummary() {
+    if (!result) return;
+    try {
+      await navigator.clipboard.writeText(buildReviewSummary(result));
+      setReportAction("copied");
+      window.setTimeout(() => setReportAction("idle"), 1_800);
+    } catch {
+      setReportAction("failed");
+    }
+  }
+
+  function downloadReport() {
+    if (!result) return;
+    try {
+      const blob = new Blob([JSON.stringify(result, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `diffguard-${result.reviewId}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setReportAction("downloaded");
+      window.setTimeout(() => setReportAction("idle"), 1_800);
+    } catch {
+      setReportAction("failed");
+    }
+  }
+
+  const outcomeTitle = result
+    ? result.findings.length > 0
+      ? `${result.findings.length} evidence-backed ${result.findings.length === 1 ? "issue needs" : "issues need"} attention`
+      : "No supported issues found in this change"
+    : "";
+  const outcomeDescription = result
+    ? result.findings.length > 0
+      ? "Start with the highest-severity finding. Every item below points to an exact changed line and includes a suggested fix."
+      : "The review completed without a high-signal finding. This is a useful signal, not a guarantee that the repository is vulnerability-free."
+    : "";
+
   return (
     <main className="shell">
       <aside className="sidebar">
         <a className="brand" href="#review" aria-label="DiffGuard home"><span className="brandMark">DG</span><span>DiffGuard</span></a>
         <nav aria-label="Primary navigation">
           <a className="navItem active" href="#review"><span>+</span>New review</a>
-          <a className="navItem" href="#findings"><span>!</span>Findings</a>
+          <a
+            className={`navItem ${result ? "" : "disabled"}`}
+            href={result ? "#findings" : "#review"}
+            aria-disabled={!result}
+            title={result ? "Jump to verified findings" : "Run a review to see findings"}
+            onClick={handleFindingsNavigation}
+          ><span>!</span>Findings{result && <em>{result.findings.length}</em>}</a>
           <a className="navItem" href="/evaluation"><span>%</span>Evaluation</a>
         </nav>
         <div className="sideStatus">
@@ -272,35 +404,88 @@ export function ReviewWorkbench({ initialResult = null }: { initialResult?: Revi
         </header>
 
         <section className="inputCard" id="review" aria-busy={loading}>
+          <header className="inputGuide">
+            <div>
+              <p className="eyebrow">New review</p>
+              <h2>Choose what you want DiffGuard to check.</h2>
+              <p>Use a public pull request link, or paste a unified diff when you only have the code change.</p>
+            </div>
+            <ol aria-label="Three review steps">
+              <li className="active"><span>1</span>Choose input</li>
+              <li><span>2</span>Run review</li>
+              <li><span>3</span>Inspect evidence</li>
+            </ol>
+          </header>
           <div className="inputTabs" role="tablist" aria-label="Review input type">
             {(["github", "raw"] as InputSource[]).map((tab) => (
-              <button className={`inputTab ${source === tab ? "active" : ""}`} key={tab} role="tab" aria-selected={source === tab} onClick={() => selectSource(tab)}>
+              <button className={`inputTab ${source === tab ? "active" : ""}`} key={tab} role="tab" aria-selected={source === tab} aria-controls="review-input-panel" disabled={loading} onClick={() => selectSource(tab)}>
                 {tab === "github" ? "GitHub PR" : "Raw diff"}
               </button>
             ))}
           </div>
-          <div className="inputRow">
-            {source === "github" && (
-              <label className="urlInput"><span aria-hidden="true">GH</span>
-                <input aria-label="Public GitHub pull request URL" placeholder="https://github.com/owner/repo/pull/123" value={value} onChange={(event) => setValue(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void analyze(); }} />
-              </label>
-            )}
-            {source === "raw" && (
-              <textarea className="diffInput" aria-label="Raw unified diff" placeholder={'diff --git a/file.ts b/file.ts\n--- a/file.ts\n+++ b/file.ts\n@@ -1 +1 @@'} value={value} onChange={(event) => setValue(event.target.value)} />
-            )}
+          <div className="inputRow" id="review-input-panel" role="tabpanel">
+            <div className="inputField">
+              <label htmlFor="review-input"><b>{INPUT_COPY[source].label}</b><span>{INPUT_COPY[source].format}</span></label>
+              {source === "github" && (
+                <div className="urlInput"><span aria-hidden="true">GH</span>
+                  <input id="review-input" aria-describedby="input-helper provider-disclosure" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="https://github.com/owner/repo/pull/123" value={value} onChange={(event) => updateValue(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && value.trim() && !loading) void analyze(); }} />
+                </div>
+              )}
+              {source === "raw" && (
+                <textarea id="review-input" className="diffInput" aria-describedby="input-helper provider-disclosure" spellCheck={false} placeholder={'diff --git a/file.ts b/file.ts\n--- a/file.ts\n+++ b/file.ts\n@@ -1 +1 @@'} value={value} onChange={(event) => updateValue(event.target.value)} />
+              )}
+            </div>
             <button className="primaryButton" onClick={() => void analyze()} disabled={loading || !value.trim()}>
-              {loading ? <><i className="spinner" />Analyzing...</> : <>{INPUT_COPY[source].button}<span>-&gt;</span></>}
+              {loading ? <><i className="spinner" />Reviewing...</> : <>{INPUT_COPY[source].button}<span>-&gt;</span></>}
             </button>
           </div>
-          <div className="inputMeta">
+          <div className="inputMeta" id="input-helper">
             <span>{INPUT_COPY[source].helper}</span>
+            <small>{source === "raw" && value ? `${value.length.toLocaleString()} characters` : "Changed lines only"}</small>
           </div>
-          <p className="providerDisclosure">Hybrid reviews send a bounded set of diff lines to Google Gemini. Free-tier data may be used to improve Google products; do not submit private code.</p>
-          {error && <div className="errorBanner" role="alert"><b>Review stopped.</b> {error}</div>}
+          <p className="providerDisclosure" id="provider-disclosure">Hybrid reviews send a bounded set of diff lines to Google Gemini. Free-tier data may be used to improve Google products; do not submit private code.</p>
+          {loading && (
+            <div className="reviewProgress" role="status" aria-live="polite">
+              <div className="progressCopy"><span className="progressMark"><i className="spinner" /></span><div><b>Review in progress</b><small>{REVIEW_STAGES[loadingStage]}</small></div></div>
+              <div className="progressSteps" aria-hidden="true">
+                {REVIEW_STAGES.map((stage, index) => <i key={stage} className={index <= loadingStage ? "active" : ""} />)}
+              </div>
+              <small>Evidence validation can take a little longer when AI analysis is active.</small>
+            </div>
+          )}
+          {error && (
+            <div className="errorBanner" role="alert">
+              <div><b>{source === "github" ? "We couldn’t load that pull request." : "We couldn’t review that diff."}</b><span>{error}</span><small>{source === "github" ? "Check that the repository and PR are public, and that the URL ends in /pull/123." : "Check that you pasted a unified git diff beginning with diff --git."}</small></div>
+              <div className="errorActions">
+                {source === "github" && <button onClick={switchToRawDiff}>Use raw diff instead</button>}
+                <button className="dismissError" onClick={() => setError("")} aria-label="Dismiss error">×</button>
+              </div>
+            </div>
+          )}
         </section>
 
         {result ? (
           <>
+            <section
+              className={`outcomeCard outcome-${result.riskLevel}`}
+              aria-label="Review outcome"
+              ref={resultHeadingRef}
+              tabIndex={-1}
+            >
+              <span className="outcomeIcon" aria-hidden="true">{result.findings.length > 0 ? "!" : "✓"}</span>
+              <div className="outcomeCopy">
+                <p className="eyebrow">Review complete</p>
+                <h2>{outcomeTitle}</h2>
+                <p>{outcomeDescription}</p>
+                <div><span className={`riskPill risk-${result.riskLevel}`}>{result.riskLevel} risk · {result.riskScore}/100</span><span>{result.analysisMode === "hybrid" ? "Gemini + deterministic checks" : "Deterministic checks"}</span></div>
+              </div>
+              <div className="outcomeActions">
+                <button onClick={() => void copySummary()}><span aria-hidden="true">□</span> Copy summary</button>
+                <button onClick={downloadReport}><span aria-hidden="true">↓</span> Download JSON</button>
+                <small role="status" aria-live="polite">{reportAction === "copied" ? "Summary copied" : reportAction === "downloaded" ? "Report downloaded" : reportAction === "failed" ? "Action failed—please try again" : "Share or save this review"}</small>
+              </div>
+            </section>
+
             {result.warnings.length > 0 && <div className="warningBanner" role="status">{result.warnings.join(" ")}</div>}
 
             <section className="metrics" aria-label="Review summary">
@@ -325,7 +510,10 @@ export function ReviewWorkbench({ initialResult = null }: { initialResult?: Revi
               <p className="traceNote">Diff text remains untrusted throughout the pipeline. Instructions inside code never become reviewer instructions.</p>
             </section>
 
-            <BoundaryInspector result={result} />
+            <details className="advancedPanel">
+              <summary><span><b>Advanced guardrail details</b><small>Inspect accepted and rejected AI evidence claims</small></span><em>Show trace</em></summary>
+              <BoundaryInspector result={result} />
+            </details>
 
             <div className="resultMeta"><div><span className="reviewPulse" />Review {result.reviewId} <b>{result.source.label}</b></div><span>+{result.summary.additions} / -{result.summary.deletions}</span></div>
 
