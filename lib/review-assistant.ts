@@ -28,19 +28,20 @@ export function answerFindingQuestion(
 ): AssistantAnswer {
   const location = evidenceLocation(finding);
   const confidence = `${Math.round(finding.confidence * 100)}%`;
+  const confidenceKind = finding.source === "deterministic" ? "rule confidence" : "model confidence";
 
   switch (question) {
     case "priority": {
       const urgent = finding.severity === "critical" || finding.severity === "high";
       return {
         heading: urgent ? "Address this before merge" : "Plan this into the current change",
-        summary: `${finding.title} is a ${finding.severity}-severity finding with ${confidence} confidence. ${urgent ? "It should be resolved or explicitly risk-accepted before this pull request merges." : "It should be reviewed alongside the other supported findings before merge."}`,
+        summary: `${finding.title} is a ${finding.severity}-severity finding with ${confidence} ${confidenceKind}. ${urgent ? "It should be resolved or explicitly risk-accepted before this pull request merges." : "It should be reviewed alongside the other supported findings before merge."}`,
         bullets: [
           `Start at ${location}.`,
           finding.suggestedFix,
           `Re-run the review after the code and tests change.`,
         ],
-        grounding: `Based on ${finding.ruleId}, severity, confidence, and its first validated evidence line.`,
+        grounding: `Based on ${finding.ruleId}, severity, ${confidenceKind}, and its first validated evidence line.`,
       };
     }
     case "explain":

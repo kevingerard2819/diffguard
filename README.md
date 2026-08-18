@@ -4,6 +4,10 @@ DiffGuard is an evidence-first AI code-review prototype for public GitHub pull r
 
 The MVP intentionally excludes authentication, private repositories, RAG, memory, and model routing.
 
+**[Open the live application](https://diffguard-ten.vercel.app/)** · **[View the evaluation dashboard](https://diffguard-ten.vercel.app/evaluation)**
+
+![DiffGuard reviewer dashboard](docs/diffguard-dashboard.png)
+
 ## Why this implementation is defensible
 
 ```mermaid
@@ -17,7 +21,7 @@ flowchart LR
   G --> H[ID and exact-quote verification]
   E --> I[Deduplicate and score]
   H --> I
-  I --> J[Evidence, fixes, confidence, and tests]
+  I --> J[Evidence, fixes, confidence signals, and tests]
 ```
 
 - GitHub input is limited to strict `https://github.com/{owner}/{repo}/pull/{number}` URLs. DiffGuard constructs the API URL itself, uses at most two bounded eight-second attempts for transient failures, and caps text diffs at 500 KB and 50 changed files. Binary patches fail with a clear error.
@@ -54,7 +58,7 @@ pnpm eval
 pnpm build
 ```
 
-The initial evaluation harness contains 15 labeled security, prompt-injection, renamed/deleted-file, and hard-negative diffs plus nine adversarial model-boundary cases. The latter exercise malformed schemas, invented line IDs, quote mismatch, mixed evidence, duplicate output, and low confidence. CI fails if precision or recall drops below 80%, if evidence or injection metrics fall below 100%, or if any fixture regresses.
+The initial evaluation harness contains 15 labeled security, prompt-injection, renamed/deleted-file, and hard-negative diffs plus nine adversarial model-boundary cases. The latter exercise malformed schemas, invented line IDs, quote mismatch, mixed evidence, duplicate output, and low confidence. CI fails if precision or recall drops below 80%, if evidence validity or the prompt-injection fixture pass rate falls below 100%, or if any fixture regresses.
 
 This small, handcrafted corpus is a regression harness—not a benchmark and not evidence of dependable real-world vulnerability detection.
 
@@ -90,16 +94,25 @@ jobs:
   review:
     runs-on: ubuntu-latest
     steps:
-      - uses: YOUR_GITHUB_USERNAME/diffguard@v1
+      - id: diffguard
+        uses: kevingerard2819/diffguard@v1
         with:
           diffguard-url: ${{ vars.DIFFGUARD_URL }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           pr-number: ${{ github.event.pull_request.number }}
           comment: true
           fail-on: high
+          report-path: diffguard-review.json
+      - name: Upload DiffGuard evidence report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: diffguard-review-${{ github.run_id }}
+          path: diffguard-review.json
+          if-no-files-found: warn
 ```
 
-For forked pull requests, GitHub may restrict comment permissions. The action treats a comment failure as non-fatal: the evidence report and job summary remain available. The GitHub token is used only against GitHub's comment API and is never sent to the DiffGuard deployment.
+The composite action writes the JSON report; the separate `upload-artifact` step makes it downloadable from the workflow run. For forked pull requests, GitHub may restrict comment permissions. The action treats a comment failure as non-fatal: the evidence report and job summary remain available. The GitHub token is used only against GitHub's comment API and is never sent to the DiffGuard deployment.
 
 ## Deploy to Vercel
 
@@ -114,14 +127,14 @@ The review route is configured for the Node.js runtime with a 60-second maximum 
 
 ## Risk score
 
-The score is a bounded prioritization signal, not the probability that a pull request is vulnerable. Exact duplicates with the same rule and evidence are removed before scoring.
+The score is a bounded prioritization signal, not the probability that a pull request is vulnerable. Exact duplicates are removed, and overlapping deterministic/model findings with the same category and primary evidence line are merged before scoring.
 
 ```text
 finding contribution = severity weight × (0.72 + confidence × 0.28) × source weight
 risk score = clamp(round(sum(unique contributions)), 0, 100)
 ```
 
-Severity weights are critical `42`, high `26`, medium `13`, and low `5`. Source weights are deterministic `1.0` and model `0.85`. Model candidates below `0.55` confidence are rejected before scoring.
+Severity weights are critical `42`, high `26`, medium `13`, and low `5`. Source weights are deterministic `1.0` and model `0.85`. A deterministic percentage is rule-match confidence, not exploit probability; a model percentage is the model's structured confidence signal. Model candidates below `0.55` confidence are rejected before scoring.
 
 ## Threat model and limitations
 
@@ -137,3 +150,7 @@ Severity weights are critical `42`, high `26`, medium `13`, and low `5`. Source 
 ## Interview demo
 
 Use [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) for a focused three-minute walkthrough covering the product problem, trusted-line boundary, rejection trace, evaluation gate, and deliberate MVP trade-offs.
+
+## License
+
+[MIT](LICENSE)

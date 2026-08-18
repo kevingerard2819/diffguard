@@ -44,7 +44,7 @@ function buildReviewSummary(result: ReviewResult): string {
     ? result.findings.map(
         (finding, index) =>
           `${index + 1}. [${finding.severity.toUpperCase()}] ${finding.title}\n` +
-          `   ${finding.evidence[0]?.filePath ?? "unknown file"}:${finding.evidence[0]?.newLine ?? "changed line"} · confidence ${Math.round(finding.confidence * 100)}%\n` +
+          `   ${finding.evidence[0]?.filePath ?? "unknown file"}:${finding.evidence[0]?.newLine ?? "changed line"} · ${finding.source === "deterministic" ? "rule" : "model"} confidence ${Math.round(finding.confidence * 100)}%\n` +
           `   ${finding.description}`,
       )
     : ["No supported findings were returned."];
@@ -54,7 +54,7 @@ function buildReviewSummary(result: ReviewResult): string {
     `Risk: ${result.riskLevel.toUpperCase()} (${result.riskScore}/100)`,
     `Analysis: ${result.analysisMode === "hybrid" ? "Deterministic checks + Gemini" : "Deterministic checks"}`,
     `Files: ${result.summary.filesChanged} · Added lines: ${result.summary.additions} · Findings: ${result.findings.length}`,
-    `Evidence coverage: ${Math.round(result.guardrails.evidenceCoverage * 100)}%`,
+    `Validated citation rate: ${Math.round(result.guardrails.validatedCitationRate * 100)}%`,
     "",
     "Findings",
     ...findings,
@@ -147,7 +147,7 @@ function FindingDetail({ finding }: { finding: Finding }) {
     <article className={`panel findingPanel severity-${finding.severity}`}>
       <header className="findingTop">
         <div className="severityIcon">!</div>
-        <div><span className="severityBadge">{finding.severity}</span><span className="confidence">{Math.round(finding.confidence * 100)}% confidence</span></div>
+        <div><span className="severityBadge">{finding.severity}</span><span className="confidence">{Math.round(finding.confidence * 100)}% {finding.source === "deterministic" ? "rule" : "model"} confidence</span></div>
         <span className="sourceBadge">{finding.source === "llm" ? "AI grounded" : "deterministic"}</span>
       </header>
       <h2>{finding.title}</h2>
@@ -493,8 +493,8 @@ export function ReviewWorkbench({ initialResult = null }: { initialResult?: Revi
             <section className="metrics" aria-label="Review summary">
               <article><p>Risk score</p><strong>{result.riskScore}<span>/100</span></strong><small className={result.riskScore > 0 ? "dangerText" : "successText"}>{result.riskLevel} risk</small></article>
               <article><p>Guarded findings</p><strong>{result.findings.length}</strong><small>{result.summary.filesChanged} files changed</small></article>
-              <article><p>Evidence coverage</p><strong>{Math.round(result.guardrails.evidenceCoverage * 100)}%</strong><small className="successText">All references validated</small></article>
-              <article><p>Trusted lines</p><strong>{result.summary.trustedLineCount}</strong><small>{result.guardrails.promptInjectionSignals} injection signals contained</small></article>
+              <article><p>Citation integrity</p><strong>{Math.round(result.guardrails.validatedCitationRate * 100)}%</strong><small className="successText">Published references validated</small></article>
+              <article><p>Trusted lines</p><strong>{result.summary.trustedLineCount}</strong><small>{result.guardrails.promptInjectionSignals} injection signals detected</small></article>
             </section>
 
             <section className="verificationTrace" aria-label="Review verification pipeline">

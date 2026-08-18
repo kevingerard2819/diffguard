@@ -20,9 +20,10 @@ const RESULT = {
     severity: "high",
     title: "Unsafe | interpolation <script>",
     confidence: 0.91,
+    source: "llm" as const,
     evidence: [{ filePath: "src/query.ts", newLine: 17 }],
   }],
-  guardrails: { evidenceCoverage: 1 },
+  guardrails: { validatedCitationRate: 1 },
   aiReview: { trace: { rejectedCount: 2 } },
 };
 
@@ -62,6 +63,7 @@ describe("GitHub Action integration", () => {
     expect(markdown).toContain("src/query.ts:17");
     expect(markdown).toContain("Unsafe \\| interpolation &lt;script&gt;");
     expect(markdown).toContain("Unsupported AI candidates rejected: **2**");
+    expect(markdown).toContain("Validated citation rate: **100%**");
     expect(markdown).not.toContain("<script>");
   });
 

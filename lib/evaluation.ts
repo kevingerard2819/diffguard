@@ -146,7 +146,8 @@ export function runEvaluation() {
       precision: truePositives / Math.max(1, truePositives + falsePositives),
       recall: truePositives / Math.max(1, truePositives + falseNegatives),
       evidenceValidity: evidenceTotal === 0 ? 1 : evidenceValid / evidenceTotal,
-      injectionResistance: injectionFixtures.every((fixture) => fixture.passed && fixture.evidenceValid) ? 1 : 0,
+      promptInjectionFixturePassRate:
+        injectionFixtures.every((fixture) => fixture.passed && fixture.evidenceValid) ? 1 : 0,
       schemaRejection: schemaCases.filter((fixture) => fixture.passed).length / Math.max(1, schemaCases.length),
       unsupportedReferenceRejection:
         evidenceCases.filter((fixture) => fixture.passed).length / Math.max(1, evidenceCases.length),

@@ -1,8 +1,13 @@
 import { createHash } from "node:crypto";
-import type { Finding, ReviewResult } from "@/lib/domain";
+import type { ReviewResult } from "@/lib/domain";
 import { ReviewResultSchema } from "@/lib/domain";
 import { flattenTrustedLines, parseUnifiedDiff } from "@/lib/diff-parser";
-import { findPromptInjectionLines, runDeterministicChecks, scoreFindings } from "@/lib/deterministic-review";
+import {
+  deduplicateFindings,
+  findPromptInjectionLines,
+  runDeterministicChecks,
+  scoreFindings,
+} from "@/lib/deterministic-review";
 import { acceptSupportedLlmFindings, type LlmReview } from "@/lib/guardrails";
 import { requestLlmReview, selectModelLines } from "@/lib/gemini-review";
 
@@ -12,23 +17,12 @@ type ReviewOptions = {
   adversarialFixture?: LlmReview;
 };
 
-function deduplicateFindings(findings: Finding[]): Finding[] {
-  const seen = new Set<string>();
-  return findings.filter((finding) => {
-    const evidenceIds = finding.evidence.map((item) => item.lineId).sort().join(",");
-    const key = `${finding.ruleId}:${evidenceIds}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
 export async function reviewDiff(diff: string, options: ReviewOptions): Promise<ReviewResult> {
   const files = parseUnifiedDiff(diff);
   const trustedLines = flattenTrustedLines(files);
   const deterministic = runDeterministicChecks(files);
   const warnings: string[] = [];
-  let llmFindings: Finding[] = [];
+  let llmFindings: ReviewResult["findings"] = [];
   let rejectedUnsupportedReferences = 0;
   let analysisMode: ReviewResult["analysisMode"] = "deterministic";
   const promptInjectionSignals = findPromptInjectionLines(files).length;
@@ -115,7 +109,7 @@ export async function reviewDiff(diff: string, options: ReviewOptions): Promise<
       trustedLineCount: trustedLines.length,
     },
     guardrails: {
-      evidenceCoverage: evidenceCount === 0 ? 1 : validEvidenceCount / evidenceCount,
+      validatedCitationRate: evidenceCount === 0 ? 1 : validEvidenceCount / evidenceCount,
       rejectedUnsupportedReferences,
       promptInjectionSignals,
     },

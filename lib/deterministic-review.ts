@@ -16,11 +16,11 @@ type Rule = {
 const RULES: Rule[] = [
   {
     id: "DG-SQL-001",
-    title: "SQL injection through string-built query",
-    description: "Untrusted data appears to be interpolated into a SQL statement, which can let an attacker change the query structure.",
+    title: "Possible string-built SQL query",
+    description: "This line builds a SQL-looking statement dynamically. If an interpolated value is untrusted, it may be able to change the query structure.",
     category: "security",
-    severity: "critical",
-    confidence: 0.98,
+    severity: "high",
+    confidence: 0.78,
     test: (line) => /(?:select|insert|update|delete)\b/i.test(line) && /(?:\$\{|\+\s*[a-z_$]|\.format\(|%s)/i.test(line),
     fix: "Use a parameterized query and validate the identifier before it reaches the database layer.",
     tests: [
@@ -30,11 +30,11 @@ const RULES: Rule[] = [
   },
   {
     id: "DG-SECRET-001",
-    title: "Hardcoded credential in source",
-    description: "A credential-like value is committed directly in code and could leak through source history, logs, or build artifacts.",
+    title: "Possible hardcoded credential",
+    description: "This line contains a credential-shaped value. Confirm that it is a real secret rather than a fixture or placeholder before rotating and removing it.",
     category: "security",
     severity: "high",
-    confidence: 0.94,
+    confidence: 0.82,
     test: (line) => /(?:api[_-]?key|secret|token|password)\s*[:=]\s*["'`][A-Za-z0-9_\-/.]{8,}["'`]/i.test(line),
     fix: "Move the value to a managed secret or environment variable and rotate the exposed credential.",
     tests: [
@@ -44,11 +44,11 @@ const RULES: Rule[] = [
   },
   {
     id: "DG-EXEC-001",
-    title: "Dynamic code or command execution",
-    description: "The change introduces an execution primitive that can run attacker-controlled code or shell input.",
+    title: "Dynamic execution primitive introduced",
+    description: "The change adds a code or command execution primitive. It becomes exploitable if untrusted values can reach the executed input.",
     category: "security",
     severity: "high",
-    confidence: 0.92,
+    confidence: 0.82,
     test: (line) => /\beval\s*\(|new\s+Function\s*\(|\bexecSync\s*\(|child_process\.exec\s*\(/.test(line),
     fix: "Replace dynamic execution with an allowlisted operation and pass arguments through a non-shell API.",
     tests: [
@@ -58,22 +58,22 @@ const RULES: Rule[] = [
   },
   {
     id: "DG-XSS-001",
-    title: "Unescaped HTML rendering",
-    description: "Raw HTML is rendered into the page and may execute script when the value contains attacker-controlled markup.",
+    title: "Raw HTML rendering requires validation",
+    description: "The change renders raw HTML. Script execution is possible when attacker-controlled markup reaches this sink without effective sanitization.",
     category: "security",
     severity: "high",
-    confidence: 0.9,
+    confidence: 0.78,
     test: (line) => /dangerouslySetInnerHTML|\.innerHTML\s*=/.test(line),
     fix: "Render text normally or sanitize HTML with a narrowly configured, well-maintained sanitizer.",
     tests: ["Render a script-tag payload and assert no script executes.", "Render expected formatting and assert approved markup is preserved."],
   },
   {
     id: "DG-CRYPTO-001",
-    title: "Weak hash used in a security-sensitive path",
-    description: "MD5 or SHA-1 is not appropriate for passwords, signatures, or collision-resistant security checks.",
+    title: "Weak digest detected; confirm security context",
+    description: "The change uses MD5 or SHA-1. These digests are unsuitable for passwords, signatures, or collision-resistant checks, but may be acceptable for non-security checksums.",
     category: "security",
     severity: "medium",
-    confidence: 0.84,
+    confidence: 0.72,
     test: (line) => /createHash\s*\(\s*["'](?:md5|sha1)["']\s*\)/i.test(line),
     fix: "Use a purpose-built password hash or a modern digest selected for the actual security requirement.",
     tests: ["Assert legacy values migrate safely and new values use the stronger algorithm."],
@@ -123,11 +123,11 @@ export function runDeterministicChecks(files: DiffFile[]): Finding[] {
     findings.push({
       id: `det-dg-ai-001-${line.id.toLowerCase()}`,
       ruleId: "DG-AI-001",
-      title: "Prompt-injection instruction embedded in diff",
-      description: "The diff contains instruction-like text aimed at the reviewer. Diff content is treated as untrusted data and the instruction was not followed.",
+      title: "Reviewer-directed instruction detected in diff",
+      description: "The diff contains text matching a reviewer-directed instruction pattern. DiffGuard treats it as untrusted data; this detector does not measure model behavior.",
       category: "ai-safety",
       severity: "medium",
-      confidence: 0.99,
+      confidence: 0.86,
       evidence: evidence(line, "This added line matches a prompt-injection phrase."),
       suggestedFix: "Remove reviewer-directed instructions from source comments or fixtures unless they are explicitly required for a security test.",
       recommendedTests: [
@@ -152,19 +152,38 @@ export const SOURCE_WEIGHTS: Record<Finding["source"], number> = {
   llm: 0.85,
 };
 
-function uniqueScoreFindings(findings: Finding[]): Finding[] {
-  const seen = new Set<string>();
-  return findings.filter((finding) => {
+export function deduplicateFindings(findings: Finding[]): Finding[] {
+  const exactFindings = new Set<string>();
+  const overlapIndexes = new Map<string, number>();
+  const unique: Finding[] = [];
+
+  for (const finding of findings) {
     const evidenceIds = finding.evidence.map((item) => item.lineId).sort().join(",");
-    const key = `${finding.ruleId}:${evidenceIds}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+    const exactKey = `${finding.source}:${finding.ruleId}:${evidenceIds}`;
+    if (exactFindings.has(exactKey)) continue;
+    exactFindings.add(exactKey);
+
+    const primaryEvidence = finding.evidence[0];
+    const overlapKey = primaryEvidence
+      ? `${finding.category}:${primaryEvidence.filePath}:${primaryEvidence.newLine ?? primaryEvidence.lineId}`
+      : "";
+    const overlapIndex = overlapKey ? overlapIndexes.get(overlapKey) : undefined;
+    const overlappingFinding = overlapIndex === undefined ? undefined : unique[overlapIndex];
+
+    if (overlapIndex !== undefined && overlappingFinding && overlappingFinding.source !== finding.source) {
+      if (finding.source === "deterministic") unique[overlapIndex] = finding;
+      continue;
+    }
+
+    if (overlapKey && overlapIndex === undefined) overlapIndexes.set(overlapKey, unique.length);
+    unique.push(finding);
+  }
+
+  return unique;
 }
 
 export function scoreFindings(findings: Finding[]): { riskScore: number; riskLevel: RiskLevel } {
-  const uniqueFindings = uniqueScoreFindings(findings);
+  const uniqueFindings = deduplicateFindings(findings);
   if (uniqueFindings.length === 0) return { riskScore: 0, riskLevel: "clear" };
   const riskScore = Math.min(100, Math.max(0, Math.round(uniqueFindings.reduce(
     (total, finding) => total

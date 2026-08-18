@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { scoreFindings } from "@/lib/deterministic-review";
+import { deduplicateFindings, scoreFindings } from "@/lib/deterministic-review";
 import { DEMO_ADVERSARIAL_LLM_REVIEW, DEMO_DIFF } from "@/lib/fixtures";
 import { parsePublicGitHubPullRequestUrl } from "@/lib/github";
 import { reviewDiff } from "@/lib/review-service";
@@ -16,8 +16,8 @@ describe("review service", () => {
       "DG-EXEC-001",
       "DG-AI-001",
     ]);
-    expect(result.riskScore).toBe(100);
-    expect(result.guardrails).toMatchObject({ evidenceCoverage: 1, promptInjectionSignals: 1 });
+    expect(result.riskScore).toBe(86);
+    expect(result.guardrails).toMatchObject({ validatedCitationRate: 1, promptInjectionSignals: 1 });
     expect(result.analysisMode).toBe("deterministic");
     expect(result.aiReview.mode).toBe("not-run");
   });
@@ -49,6 +49,24 @@ describe("review service", () => {
     const finding = result.findings[0];
     expect(scoreFindings([finding, { ...finding, id: "duplicate" }]))
       .toEqual(scoreFindings([finding]));
+  });
+
+  it("merges deterministic and model findings for the same category and primary line", async () => {
+    const result = await reviewDiff(DEMO_DIFF, {
+      source: { kind: "demo", label: "Cross-source deduplication" },
+      useLlm: false,
+    });
+    const deterministicFinding = result.findings[0];
+    const modelFinding = {
+      ...deterministicFinding,
+      id: "llm-overlap",
+      ruleId: "LLM-SQL-OVERLAP",
+      title: "Model restatement of the SQL concern",
+      source: "llm" as const,
+    };
+
+    expect(deduplicateFindings([modelFinding, deterministicFinding])).toEqual([deterministicFinding]);
+    expect(scoreFindings([modelFinding, deterministicFinding])).toEqual(scoreFindings([deterministicFinding]));
   });
 });
 

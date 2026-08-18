@@ -12,9 +12,10 @@ export interface ActionReviewResult {
     severity: string;
     title: string;
     confidence: number;
+    source?: "deterministic" | "llm";
     evidence: Array<{ filePath: string; newLine: number | null }>;
   }>;
-  guardrails?: { evidenceCoverage?: number };
+  guardrails?: { validatedCitationRate?: number; evidenceCoverage?: number };
   aiReview?: { trace?: { rejectedCount?: number } };
 }
 
@@ -23,4 +24,3 @@ export function resolveReportPath(workspace: string, requestedPath?: string): st
 export function shouldFailReview(riskLevel: string, failOn: string): boolean;
 export function buildReviewMarkdown(result: ActionReviewResult, pullRequestUrl: string): string;
 export function main(): Promise<void>;
-

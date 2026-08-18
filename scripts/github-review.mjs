@@ -94,21 +94,24 @@ export function buildReviewMarkdown(result, pullRequestUrl) {
     const confidence = typeof finding.confidence === "number"
       ? `${Math.round(finding.confidence * 100)}%`
       : "—";
-    return `| ${markdownText(finding.severity || "unknown")} | ${markdownText(finding.title || "Untitled finding")} | ${markdownText(location)} | ${confidence} |`;
+    const confidenceSource = finding.source === "deterministic" ? "rule" : finding.source === "llm" ? "model" : "unspecified";
+    return `| ${markdownText(finding.severity || "unknown")} | ${markdownText(finding.title || "Untitled finding")} | ${markdownText(location)} | ${confidenceSource} | ${confidence} |`;
   });
 
   const omitted = result.findings.length - findings.length;
   const table = rows.length
     ? [
-        "| Severity | Finding | Evidence | Confidence |",
-        "| --- | --- | --- | ---: |",
+        "| Severity | Finding | Evidence | Signal | Confidence |",
+        "| --- | --- | --- | --- | ---: |",
         ...rows,
         ...(omitted > 0 ? [`\n_${omitted} additional findings are available in the JSON artifact._`] : []),
       ].join("\n")
     : "No supported findings were returned. A clear result is not a guarantee that the change is safe.";
 
   const rejected = Number(result.aiReview?.trace?.rejectedCount || 0);
-  const coverage = typeof result.guardrails?.evidenceCoverage === "number"
+  const citationRate = typeof result.guardrails?.validatedCitationRate === "number"
+    ? `${Math.round(result.guardrails.validatedCitationRate * 100)}%`
+    : typeof result.guardrails?.evidenceCoverage === "number"
     ? `${Math.round(result.guardrails.evidenceCoverage * 100)}%`
     : "unknown";
 
@@ -118,7 +121,7 @@ export function buildReviewMarkdown(result, pullRequestUrl) {
     "",
     `**Risk:** ${markdownText(result.riskLevel).toUpperCase()} (${result.riskScore}/100) · **Mode:** ${markdownText(result.analysisMode || "unknown")} · **Review:** \`${markdownText(result.reviewId)}\``,
     "",
-    `Evidence coverage: **${coverage}** · Unsupported AI candidates rejected: **${rejected}**`,
+    `Validated citation rate: **${citationRate}** · Unsupported AI candidates rejected: **${rejected}**`,
     "",
     table,
     "",

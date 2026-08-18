@@ -25,7 +25,7 @@ export default function EvaluationPage() {
         <article><span>Precision</span><strong>{percent(evaluation.metrics.precision)}</strong><small>Threshold 80%</small></article>
         <article><span>Recall</span><strong>{percent(evaluation.metrics.recall)}</strong><small>Threshold 80%</small></article>
         <article><span>Evidence validity</span><strong>{percent(evaluation.metrics.evidenceValidity)}</strong><small>Required 100%</small></article>
-        <article><span>Injection resistance</span><strong>{percent(evaluation.metrics.injectionResistance)}</strong><small>Required 100%</small></article>
+        <article><span>Prompt-injection fixtures</span><strong>{percent(evaluation.metrics.promptInjectionFixturePassRate)}</strong><small>Required 100%</small></article>
         <article><span>Schema rejection</span><strong>{percent(evaluation.metrics.schemaRejection)}</strong><small>Required 100%</small></article>
         <article><span>Reference rejection</span><strong>{percent(evaluation.metrics.unsupportedReferenceRejection)}</strong><small>Required 100%</small></article>
       </section>

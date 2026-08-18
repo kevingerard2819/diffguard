@@ -1,5 +1,5 @@
 name: "DiffGuard PR review"
-description: "Run an evidence-first DiffGuard review and publish a GitHub summary, JSON artifact, and optional PR comment."
+description: "Run an evidence-first DiffGuard review and publish a GitHub summary, JSON report, and optional PR comment."
 author: "DiffGuard"
 
 branding:
@@ -62,4 +62,3 @@ runs:
         DIFFGUARD_FAIL_ON: ${{ inputs.fail-on }}
         DIFFGUARD_REPORT_PATH: ${{ inputs.report-path }}
       run: node "$GITHUB_ACTION_PATH/scripts/github-review.mjs"
-

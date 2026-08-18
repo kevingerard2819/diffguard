@@ -9,11 +9,11 @@ import {
 const finding: Finding = {
   id: "det-dg-sql-001",
   ruleId: "DG-SQL-001",
-  title: "SQL injection through string-built query",
-  description: "Untrusted data is interpolated into SQL text.",
+  title: "Possible string-built SQL query",
+  description: "This SQL-looking line is built dynamically and requires data-flow review.",
   category: "security",
-  severity: "critical",
-  confidence: 0.98,
+  severity: "high",
+  confidence: 0.78,
   evidence: [{
     lineId: "DG-F1-H1-L3",
     filePath: "src/api/invoices.ts",
@@ -40,10 +40,10 @@ describe("grounded finding assistant", () => {
     ]);
   });
 
-  it("prioritizes a critical finding using its validated location", () => {
+  it("prioritizes a high-severity finding using its validated location", () => {
     const answer = answerFindingQuestion(finding, "priority");
     expect(answer.heading).toBe("Address this before merge");
-    expect(answer.summary).toContain("98% confidence");
+    expect(answer.summary).toContain("78% rule confidence");
     expect(answer.bullets[0]).toContain("src/api/invoices.ts:31 (DG-F1-H1-L3)");
   });
 

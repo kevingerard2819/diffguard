@@ -120,7 +120,7 @@ export const ReviewResultSchema = z.object({
     trustedLineCount: z.number().int().nonnegative(),
   }),
   guardrails: z.object({
-    evidenceCoverage: z.number().min(0).max(1),
+    validatedCitationRate: z.number().min(0).max(1),
     rejectedUnsupportedReferences: z.number().int().nonnegative(),
     promptInjectionSignals: z.number().int().nonnegative(),
   }),

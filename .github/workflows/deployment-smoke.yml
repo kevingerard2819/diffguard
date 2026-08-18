@@ -31,5 +31,5 @@ jobs:
           persist-credentials: false
       - name: Verify deployed readiness contract
         env:
-          DEPLOYMENT_URL: ${{ github.event.deployment_status.environment_url || inputs.url || vars.DIFFGUARD_URL }}
+          DEPLOYMENT_URL: ${{ inputs.url || vars.DIFFGUARD_URL || github.event.deployment_status.environment_url }}
         run: node scripts/smoke-deployment.mjs

@@ -28,6 +28,10 @@ export async function main() {
         signal: AbortSignal.timeout(15_000),
       });
       if (!response.ok) throw new Error(`Health endpoint returned HTTP ${response.status}.`);
+      const contentType = response.headers.get("content-type") || "unknown content type";
+      if (!contentType.toLowerCase().includes("application/json")) {
+        throw new Error(`Health endpoint returned ${contentType} instead of JSON.`);
+      }
       const body = await response.json();
       if (body?.status !== "ok" || body?.service !== "diffguard" || body?.capabilities?.deterministicReview !== true) {
         throw new Error("Health endpoint returned an unexpected readiness contract.");
@@ -58,4 +62,3 @@ if (import.meta.url === invokedPath) {
     process.exitCode = 1;
   });
 }
-

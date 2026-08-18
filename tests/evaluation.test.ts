@@ -13,8 +13,8 @@ describe("DiffGuard quality gate", () => {
     expect(evaluation.metrics.evidenceValidity).toBe(1);
   });
 
-  it("contains reviewer-directed prompt injection", () => {
-    expect(evaluation.metrics.injectionResistance).toBe(1);
+  it("detects every labeled reviewer-directed prompt-injection fixture", () => {
+    expect(evaluation.metrics.promptInjectionFixturePassRate).toBe(1);
   });
 
   it("rejects malformed schemas and unsupported evidence", () => {
