@@ -426,11 +426,11 @@ export function ReviewWorkbench({ initialResult = null }: { initialResult?: Revi
               <label id="review-input-label" htmlFor="review-input"><b>{INPUT_COPY[source].label}</b><span>{INPUT_COPY[source].format}</span></label>
               {source === "github" && (
                 <div className="urlInput"><span aria-hidden="true">GH</span>
-                  <input id="review-input" aria-describedby="input-helper provider-disclosure" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="https://github.com/owner/repo/pull/123" value={value} onChange={(event) => updateValue(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && value.trim() && !loading) void analyze(); }} />
+                  <input id="review-input" aria-describedby="input-helper" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="https://github.com/owner/repo/pull/123" value={value} onChange={(event) => updateValue(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && value.trim() && !loading) void analyze(); }} />
                 </div>
               )}
               {source === "raw" && (
-                <textarea id="review-input" className="diffInput" aria-describedby="input-helper provider-disclosure" spellCheck={false} placeholder={'diff --git a/file.ts b/file.ts\n--- a/file.ts\n+++ b/file.ts\n@@ -1 +1 @@'} value={value} onChange={(event) => updateValue(event.target.value)} />
+                <textarea id="review-input" className="diffInput" aria-describedby="input-helper" spellCheck={false} placeholder={'diff --git a/file.ts b/file.ts\n--- a/file.ts\n+++ b/file.ts\n@@ -1 +1 @@'} value={value} onChange={(event) => updateValue(event.target.value)} />
               )}
             </div>
             <button className="primaryButton" onClick={() => void analyze()} disabled={loading || !value.trim()}>
@@ -441,7 +441,6 @@ export function ReviewWorkbench({ initialResult = null }: { initialResult?: Revi
             <span>{INPUT_COPY[source].helper}</span>
             <small>{source === "raw" && value ? `${value.length.toLocaleString()} characters` : "Changed lines only"}</small>
           </div>
-          <p className="providerDisclosure" id="provider-disclosure">Hybrid reviews send a bounded set of diff lines to Google Gemini. Free-tier data may be used to improve Google products; do not submit private code.</p>
           {loading && (
             <div className="reviewProgress" role="status" aria-live="polite">
               <div className="progressCopy"><span className="progressMark"><i className="spinner" /></span><div><b>Review in progress</b><small>{REVIEW_STAGES[loadingStage]}</small></div></div>

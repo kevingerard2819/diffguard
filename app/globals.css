@@ -63,7 +63,6 @@ button:disabled { cursor: not-allowed; opacity: .56; }
 .primaryButton span { padding-left: 9px; }
 .inputMeta { display: flex; justify-content: space-between; padding: 0 21px 16px 45px; color: #8a949e; font-size: 10px; }
 .inputMeta button { border: 0; background: none; color: var(--blue); font-size: 10px; font-weight: 700; }
-.providerDisclosure { margin: -7px 21px 16px 45px; padding: 9px 11px; border: 1px solid #e7ddbd; border-radius: 7px; background: #fffaf0; color: #756335; font-size: 9px; line-height: 1.45; }
 
 .reviewEmptyState { max-width: 1340px; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(360px, .85fr); gap: 42px; align-items: center; min-height: 310px; margin: 18px auto 0; padding: 44px 48px; border: 1px solid var(--line); border-radius: 12px; background: linear-gradient(135deg, #fff 0%, #fbfcff 58%, #f1f4ff 100%); box-shadow: 0 10px 36px #1d29390a; }
 .emptyStateIntro { max-width: 650px; }
@@ -250,7 +249,6 @@ button:disabled { cursor: not-allowed; opacity: .56; }
   .topActions { margin-top: 16px; }
   .inputRow { grid-template-columns: 1fr; }
   .inputMeta { padding-left: 21px; }
-  .providerDisclosure { margin-left: 21px; }
   .reviewEmptyState { min-height: 0; padding: 32px 26px; }
   .verificationTrace > header, .guardrailDemo > header, .boundaryInspector > header { align-items: flex-start; }
   .traceSteps { grid-template-columns: repeat(2, minmax(0, 1fr)); }.traceSteps article:nth-child(3n) { border-right: 1px solid #ffffff10; }.traceSteps article:nth-child(2n) { border-right: 0; }.traceSteps article:nth-last-child(-n+2) { border-bottom: 1px solid #ffffff10; }.traceSteps article:last-child { border-bottom: 0; }
@@ -294,7 +292,6 @@ button:disabled { cursor: not-allowed; opacity: .56; }
 .inputRow { align-items: end; padding-top: 16px; }
 .inputMeta { padding-left: 21px; }
 .inputMeta small { color: #8a949e; font: 8px var(--mono); }
-.providerDisclosure { margin-left: 21px; }
 .primaryButton { align-self: end; }
 .primaryButton:focus-visible, .inputTab:focus-visible, .outcomeActions button:focus-visible, .errorActions button:focus-visible, .advancedPanel summary:focus-visible { outline: 3px solid #3767f432; outline-offset: 2px; }
 .reviewProgress { margin: 0 20px 18px; padding: 13px 14px; border: 1px solid #d8e0fb; border-radius: 9px; background: #f7f8ff; color: #42526a; }
@@ -407,7 +404,6 @@ html[data-theme="dark"] .inputField > label { color: #c9d3dc; }
 html[data-theme="dark"] :where(.urlInput, .diffInput) { border-color: #344454; background: #0d151e; color: var(--ink); }
 html[data-theme="dark"] .urlInput input { color: var(--ink); }
 html[data-theme="dark"] :where(.urlInput input, .diffInput)::placeholder { color: #647382; }
-html[data-theme="dark"] .providerDisclosure { border-color: #5c4f30; background: #282416; color: #d3bc7f; }
 html[data-theme="dark"] .reviewEmptyState { border-color: var(--line); background: linear-gradient(135deg, #121b25 0%, #101923 58%, #172039 100%); box-shadow: 0 14px 40px #0000002e; }
 html[data-theme="dark"] .emptyStateMark { border-color: #536aa5; background: #1b2540; color: #b3c1ff; }
 html[data-theme="dark"] .emptyStateIntro > p:last-child { color: #9aa7b4; }
