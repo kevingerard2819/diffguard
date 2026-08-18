@@ -4,13 +4,14 @@
 
 “AI reviewers are useful, but a confident finding is not trustworthy unless it can point to evidence that actually exists in the submitted change. DiffGuard is an evidence-first reviewer: it treats both the diff and the model as untrusted.”
 
-## 0:30-1:20 — Run a real review
+## 0:30-1:20 — Run the seeded trust-boundary demo
 
-1. Submit a prepared public pull-request URL, or paste its unified diff through **Raw diff**.
+1. Choose **Seeded demo** and run it. Explain that it is a fixed fixture and makes no Gemini request.
 2. Point out the risk score, trusted-line count, and evidence coverage before opening a finding.
 3. Select a finding and show its exact file, line, code, confidence, fix, and recommended tests.
 4. Open **Ask DiffGuard**, choose **What should I fix first?**, and show that the response cites the validated line and existing fix rather than starting an unbounded chat.
 5. Use the dark verification trace to explain the five stages: bounded ingest, trusted IDs, deterministic baseline, structured AI, and citation integrity.
+6. Open the raw-candidate view and show the duplicate, invented ID, quote mismatch, and low-confidence rejections.
 
 Key sentence: “Risk is calculated only after evidence validation; an unsupported model claim never affects the score.”
 
@@ -41,5 +42,6 @@ Key sentence: “Zod checks the shape; the citation gate verifies the server ID 
 - Pattern rules are deliberately high precision, not a complete static analyzer.
 - A clear review does not guarantee defect-free code.
 - Public GitHub API access is rate-limited without authentication.
+- The built-in review limit is per server instance; provider or edge quotas are still required for production enforcement.
 - The adversarial boundary fixtures exercise real validation code but are deterministic; run one live hybrid review before the interview when an API key is available.
 - The 24-case suite is an initial regression harness, not a real-world accuracy benchmark.

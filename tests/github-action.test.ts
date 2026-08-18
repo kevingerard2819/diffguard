@@ -69,10 +69,13 @@ describe("GitHub Action integration", () => {
   });
 
   it("renders a bounded, escaped evidence summary", () => {
-    const markdown = buildReviewMarkdown(RESULT, "https://github.com/acme/repo/pull/42");
+    const markdown = buildReviewMarkdown({
+      ...RESULT,
+      findings: [{ ...RESULT.findings[0], title: "Unsafe \\| interpolation <script>" }],
+    }, "https://github.com/acme/repo/pull/42");
     expect(markdown).toContain("HIGH (73/100)");
     expect(markdown).toContain("src/query.ts:17");
-    expect(markdown).toContain("Unsafe \\| interpolation &lt;script&gt;");
+    expect(markdown).toContain(String.raw`Unsafe \\\| interpolation &lt;script&gt;`);
     expect(markdown).toContain("Unsupported AI candidates rejected: **2**");
     expect(markdown).toContain("Validated citation rate: **100%**");
     expect(markdown).not.toContain("<script>");

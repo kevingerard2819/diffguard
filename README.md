@@ -1,10 +1,10 @@
 # DiffGuard
 
-DiffGuard is an evidence-first AI code-review prototype for public GitHub pull requests and raw unified diffs. It assigns trusted line IDs on the server, runs repeatable heuristic security checks, optionally adds structured model findings, and rejects model claims that fail its structural-grounding checks.
+DiffGuard is an evidence-first AI code-review prototype for public GitHub pull requests, raw unified diffs, and a safe seeded vulnerable demo. It assigns trusted line IDs on the server, runs repeatable heuristic security checks, optionally adds structured model findings, and rejects model claims that fail its structural-grounding checks.
 
 The MVP intentionally excludes authentication, private repositories, RAG, memory, and model routing.
 
-**[Open the live application](https://diffguard-ten.vercel.app/)** · **[View the evaluation dashboard](https://diffguard-ten.vercel.app/evaluation)**
+**[Open the live application](https://diffguard-ten.vercel.app/)** · **[View the evaluation dashboard](https://diffguard-ten.vercel.app/evaluation)** · **[Read the assignment submission](SUBMISSION.md)**
 
 ![DiffGuard reviewer dashboard](docs/diffguard-dashboard.png)
 
@@ -34,6 +34,7 @@ flowchart LR
 - The finding-level **Ask DiffGuard** assistant answers five guided questions using only the selected validated finding. It makes no extra model call, adds no conversation state, and can copy an evidence-grounded implementation checklist.
 - DiffGuard enforces structural grounding: it prevents citations to nonexistent changed lines and mismatched quotes. This does not prove that an approved finding is semantically correct.
 - Review responses include a correlation ID and `Server-Timing`; privacy-safe JSON logs record operational counts and failure categories without diff text, URLs, prompts, or model output.
+- Public PR and raw-diff requests have a configurable, best-effort per-instance limit. The seeded demo bypasses this limit because it makes no model request.
 - `/api/health` reports deterministic and hybrid capability readiness without exposing credentials, while global CSP, frame, MIME, referrer, resource, and permissions headers harden the browser surface.
 
 ## Run locally
@@ -46,7 +47,7 @@ cp .env.example .env.local
 pnpm dev
 ```
 
-Open `http://localhost:3000`. Public-PR and raw-diff reviews run deterministic checks without `GEMINI_API_KEY`; adding a Google AI Studio key enables hybrid analysis with the stable `gemini-3.6-flash` model.
+Open `http://localhost:3000`. The seeded demo always works without a key and uses deterministic adversarial candidates. Public-PR and raw-diff reviews run deterministic checks without `GEMINI_API_KEY`; adding a Google AI Studio key enables hybrid analysis with the stable `gemini-3.6-flash` model. `DIFFGUARD_RATE_LIMIT_MAX` and `DIFFGUARD_RATE_LIMIT_WINDOW_SECONDS` configure the public review limit.
 
 ## Quality gate
 
@@ -96,7 +97,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - id: diffguard
-        uses: kevingerard2819/diffguard@v1.1.0
+        uses: kevingerard2819/diffguard@v1.2.0
         with:
           diffguard-url: ${{ vars.DIFFGUARD_URL }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -127,9 +128,10 @@ The composite action writes JSON and SARIF reports; the separate upload steps ma
 ## Deploy to Vercel
 
 1. Import the repository into Vercel as a Next.js project.
-2. Optionally add `GEMINI_API_KEY` and `GEMINI_MODEL=gemini-3.6-flash` in Project Settings > Environment Variables.
-3. Deploy, then add the deployment URL as the `DIFFGUARD_URL` Actions repository variable.
-4. Run the `Deployment smoke test` workflow once manually. Future Vercel deployment-status events are checked automatically when they include an environment URL.
+2. Optionally add `GEMINI_API_KEY` and `GEMINI_MODEL=gemini-3.6-flash` in Project Settings > Environment Variables. Rotate any key that has been shared outside the deployment.
+3. Set `DIFFGUARD_RATE_LIMIT_MAX=8` and `DIFFGUARD_RATE_LIMIT_WINDOW_SECONDS=600`, then configure provider or edge quotas for multi-instance protection.
+4. Deploy, then add the deployment URL as the `DIFFGUARD_URL` Actions repository variable.
+5. Run the `Deployment smoke test` workflow once manually. Future Vercel deployment-status events are checked automatically when they include an environment URL.
 
 No database, background worker, or private GitHub credential is required for the MVP.
 
@@ -156,7 +158,8 @@ Severity weights are critical `42`, high `26`, medium `13`, and low `5`. Source 
 - Exact citation integrity does not establish semantic correctness; an approved model finding can still misunderstand a real line.
 - Adversarial model-boundary fixtures remain isolated to the evaluation page and automated tests; they are never presented as live-model output.
 - DiffGuard does not execute submitted code and does not fetch arbitrary URLs.
-- Real-world expansion should add language-aware data flow, a larger labeled corpus, rate limiting, observability, and authenticated GitHub App access as separate milestones.
+- The built-in limiter is intentionally best-effort and per server instance; provider quotas or edge enforcement are still required for durable multi-instance protection.
+- Real-world expansion should add language-aware data flow, a larger labeled corpus, durable edge rate limiting, deeper observability, and authenticated GitHub App access as separate milestones.
 
 ## Interview demo
 

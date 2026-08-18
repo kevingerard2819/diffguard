@@ -132,6 +132,7 @@ export const ReviewResultSchema = z.object({
 export const ReviewRequestSchema = z.discriminatedUnion("source", [
   z.object({ source: z.literal("github"), value: z.string().url().max(500) }),
   z.object({ source: z.literal("raw"), value: z.string().min(20).max(500_000) }),
+  z.object({ source: z.literal("demo") }),
 ]);
 
 export type Severity = z.infer<typeof SeveritySchema>;

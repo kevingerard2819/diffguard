@@ -1,6 +1,6 @@
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._-]{8,128}$/;
 
-type ReviewSource = "github" | "raw" | "unknown";
+type ReviewSource = "github" | "raw" | "demo" | "unknown";
 
 interface ReviewCompletedEvent {
   requestId: string;
@@ -18,7 +18,7 @@ interface ReviewFailedEvent {
   durationMs: number;
   source: ReviewSource;
   statusCode: number;
-  failureType: "validation" | "github_upstream" | "review";
+  failureType: "validation" | "github_upstream" | "rate_limit" | "review";
 }
 
 function operationalRecord(event: string, fields: object) {

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import nextConfig from "../next.config";
 import { GET as healthCheck } from "@/app/api/health/route";
 import { POST as reviewRequest } from "@/app/api/review/route";
+import { resetReviewRateLimitsForTests } from "@/lib/rate-limit";
 
 const RAW_DIFF = `diff --git a/src/value.ts b/src/value.ts
 --- a/src/value.ts
@@ -10,7 +11,11 @@ const RAW_DIFF = `diff --git a/src/value.ts b/src/value.ts
 -export const value = 1;
 +export const value = 2;`;
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
+  resetReviewRateLimitsForTests();
+});
 
 describe("operational hardening", () => {
   it("publishes a non-cacheable readiness response without exposing credentials", async () => {
@@ -50,21 +55,57 @@ describe("operational hardening", () => {
     expect(JSON.stringify(record)).not.toContain("export const value");
   });
 
-  it("rejects the removed demo API with a correlated validation log", async () => {
-    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  it("runs the seeded demo without a model request or rate-limit charge", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
     const response = await reviewRequest(new Request("http://localhost/api/review", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Request-Id": "invalid_test_123" },
       body: JSON.stringify({ source: "demo" }),
     }));
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(200);
     expect(response.headers.get("x-diffguard-request-id")).toBe("invalid_test_123");
-    expect(JSON.parse(String(error.mock.calls[0][0]))).toMatchObject({
-      event: "review.failed",
-      failureType: "validation",
-      statusCode: 400,
+    expect(response.headers.get("ratelimit-limit")).toBeNull();
+    expect(await response.json()).toMatchObject({
+      source: { kind: "demo", label: "Seeded vulnerable demo" },
+      analysisMode: "deterministic",
+      aiReview: { mode: "fixture", trace: { rawCount: 5, approvedCount: 1, rejectedCount: 4 } },
     });
+    expect(JSON.parse(String(info.mock.calls[0][0]))).toMatchObject({ event: "review.completed", source: "demo" });
+  });
+
+  it("limits repeated public review requests without storing the client address", async () => {
+    vi.stubEnv("DIFFGUARD_RATE_LIMIT_MAX", "2");
+    vi.stubEnv("DIFFGUARD_RATE_LIMIT_WINDOW_SECONDS", "60");
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const request = () => reviewRequest(new Request("http://localhost/api/review", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Forwarded-For": "203.0.113.10",
+        "X-Request-Id": "rate_limit_test_123",
+      },
+      body: JSON.stringify({ source: "raw", value: RAW_DIFF }),
+    }));
+
+    const first = await request();
+    const second = await request();
+    const blocked = await request();
+
+    expect(first.status).toBe(200);
+    expect(first.headers.get("ratelimit-remaining")).toBe("1");
+    expect(second.status).toBe(200);
+    expect(second.headers.get("ratelimit-remaining")).toBe("0");
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get("retry-after")).toBe("60");
+    expect(await blocked.json()).toEqual({ error: "Review limit reached. Try again after the retry window." });
+    expect(JSON.parse(String(error.mock.calls.at(-1)?.[0]))).toMatchObject({
+      event: "review.failed",
+      failureType: "rate_limit",
+      statusCode: 429,
+    });
+    expect(info).toHaveBeenCalledTimes(2);
   });
 
   it("configures browser security headers globally", async () => {

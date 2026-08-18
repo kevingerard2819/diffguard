@@ -133,6 +133,11 @@ button:disabled { cursor: not-allowed; opacity: .56; }
 
 .diffInput { min-height: 130px; width: 100%; resize: vertical; padding: 13px 14px; border: 1px solid #cfd6de; border-radius: 8px; outline: 0; background: #fafbfc; color: var(--ink); font: 11px/1.6 var(--mono); }
 .diffInput:focus { border-color: var(--blue); box-shadow: 0 0 0 3px #3767f414; }
+.demoPreview { min-height: 130px; display: flex; align-items: flex-start; gap: 14px; padding: 17px; border: 1px solid #cbd5f7; border-radius: 8px; background: linear-gradient(135deg, #f7f9ff, #f0f4ff); outline: 0; }
+.demoPreview:focus { border-color: var(--blue); box-shadow: 0 0 0 3px #3767f414; }
+.demoPreviewMark { display: grid; place-items: center; flex: 0 0 auto; width: 35px; height: 35px; border: 1px solid #9caceb; border-radius: 9px; background: #fff; color: #4864d7; font: 750 9px var(--mono); }
+.demoPreview b, .demoPreview small { display: block; }.demoPreview b { color: #27333e; font-size: 11px; }.demoPreview small { margin-top: 5px; color: #5268bd; font: 8px/1.5 var(--mono); }
+.demoPreview p { max-width: 720px; margin: 11px 0 0; color: #65717d; font-size: 10px; line-height: 1.55; }
 .spinner { display: inline-block; width: 12px; height: 12px; margin-right: 8px; border: 2px solid #ffffff66; border-top-color: white; border-radius: 50%; animation: spin .75s linear infinite; vertical-align: -2px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .errorBanner, .warningBanner { max-width: 1340px; margin: 0 auto; font-size: 10px; line-height: 1.5; }
@@ -414,6 +419,11 @@ html[data-theme="dark"] .inputTab { color: #91a0ad; }
 html[data-theme="dark"] .inputTab.active { color: #eef3f8; }
 html[data-theme="dark"] .inputField > label { color: #c9d3dc; }
 html[data-theme="dark"] :where(.urlInput, .diffInput) { border-color: #344454; background: #0d151e; color: var(--ink); }
+html[data-theme="dark"] .demoPreview { border-color: #405484; background: linear-gradient(135deg, #151e35, #111a2d); }
+html[data-theme="dark"] .demoPreviewMark { border-color: #536aaa; background: #1a2540; color: #b9c7ff; }
+html[data-theme="dark"] .demoPreview b { color: #e1e8ee; }
+html[data-theme="dark"] .demoPreview small { color: #9eaff1; }
+html[data-theme="dark"] .demoPreview p { color: #9ba8b5; }
 html[data-theme="dark"] .urlInput input { color: var(--ink); }
 html[data-theme="dark"] :where(.urlInput input, .diffInput)::placeholder { color: #647382; }
 html[data-theme="dark"] .providerDisclosure { border-color: #5c4f30; background: #282416; color: #d3bc7f; }
