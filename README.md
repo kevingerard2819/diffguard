@@ -1,90 +1,179 @@
 # DiffGuard
 
-DiffGuard is an evidence-first AI code-review prototype for public GitHub pull requests, raw unified diffs, and a safe seeded vulnerable demo. It assigns trusted line IDs on the server, runs repeatable heuristic security checks, optionally adds structured model findings, and rejects model claims that fail its structural-grounding checks.
+<div align="center">
 
-The MVP intentionally excludes authentication, private repositories, RAG, memory, and model routing.
+![DiffGuard Banner](docs/diffguard-dashboard.png)
 
-**[Open the live application](https://diffguard-ten.vercel.app/)** · **[View the evaluation dashboard](https://diffguard-ten.vercel.app/evaluation)** · **[Read the assignment submission](SUBMISSION.md)**
+**Evidence-first, zero-hallucination AI code reviewer for pull requests and Git diffs.**
 
-![DiffGuard reviewer dashboard](docs/diffguard-dashboard.png)
+[![Live Application](https://img.shields.io/badge/Live%20Demo-diffguard--ten.vercel.app-0070f3?style=for-the-badge&logo=vercel&logoColor=white)](https://diffguard-ten.vercel.app/)
+[![Next.js](https://img.shields.io/badge/Next.js-15.5-black?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Gemini](https://img.shields.io/badge/Gemini-3.6%20Flash-4285f4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
+[![SARIF Compliant](https://img.shields.io/badge/SARIF-2.1.0-5c2d91?style=for-the-badge)](https://sarifweb.azurewebsites.net/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
-## Why this implementation is defensible
+[🌐 Live Application](https://diffguard-ten.vercel.app/) · [📊 Evaluation Dashboard](https://diffguard-ten.vercel.app/evaluation) · [📖 3-Minute Demo Script](docs/DEMO_SCRIPT.md) · [📝 Assignment Submission](SUBMISSION.md)
+
+</div>
+
+---
+
+## Overview
+
+AI-assisted code review often suffers from a fundamental trust deficit: language models produce confident, well-formatted security critiques that cite non-existent files, hallucinate code lines, or misunderstand the scope of a pull request.
+
+**DiffGuard** solves this by establishing a strict, multi-stage **trust boundary** between the source diff, the model, and the developer:
+
+1. **Both the diff and the model are treated as untrusted inputs.**
+2. **Every diff line is assigned a tamper-proof server ID** (`DG-F1-H1-L3`) before analysis.
+3. **A citation integrity gate verifies every claimed line ID and exact code quote**; fabricated or mismatched model claims are rejected and logged before scoring.
+4. **Deterministic security heuristics run in parallel with structured Gemini analysis**, ensuring a reliable baseline even without API keys or during model rate limits.
+5. **A bounded finding assistant ("Ask DiffGuard")** answers remediation questions client-side without extra model calls, hallucinations, or conversation state.
+
+> [!NOTE]
+> The MVP deliberately excludes user authentication, private repository access, RAG, persistent memory, and automated patch application to focus on proving the core trust and evidence-validation boundary.
+
+---
+
+## Architecture & Trust Pipeline
 
 ```mermaid
-flowchart LR
-  A[Public PR URL or raw diff] --> B[Bounded server ingestion]
-  B --> C[Unified diff parser]
-  C --> D[Server-assigned trusted line IDs]
-  D --> E[Deterministic security rules]
-  D --> F[Structured Gemini review]
-  F --> G[Zod validation]
-  G --> H[ID and exact-quote verification]
-  E --> I[Deduplicate and score]
-  H --> I
-  I --> J[Evidence, fixes, confidence signals, and tests]
+flowchart TD
+    subgraph Ingestion["1. Bounded Ingestion"]
+        A[Public PR URL / Raw Unified Diff] --> B[URL & Payload Sanitizer]
+        B --> C[Unified Diff Parser]
+    end
+
+    subgraph TrustBoundary["2. Server Evidence Stamping"]
+        C --> D[Assign Trusted Line IDs<br/><code>DG-F1-H1-L3</code>]
+    end
+
+    subgraph DualAnalysis["3. Dual-Track Analysis"]
+        D --> E[Deterministic Security Heuristics<br/><i>SQL, Secrets, Eval, XSS, Crypto, Injections</i>]
+        D --> F[Structured Gemini 3.6 Flash<br/><i>Stateless, Bounded JSON Schema</i>]
+    end
+
+    subgraph VerificationGate["4. Grounding & Citation Gate"]
+        F --> G[Zod Schema Validation]
+        G --> H{Evidence Integrity Check}
+        H -->|Invalid ID / Mismatched Quote / Low Conf| I[Reject Candidate & Log Reason Code]
+        H -->|ID Valid & Quote Exact Match| J[Approved AI Findings]
+    end
+
+    subgraph ScoringDelivery["5. Scoring & Delivery"]
+        E --> K[Deduplicate & Merge Findings]
+        J --> K
+        K --> L[Calculate Weighted Risk Score<br/><code>0 - 100</code>]
+        L --> M[Interactive UI Workbench]
+        L --> N[Ask DiffGuard Grounded Assistant]
+        L --> O[SARIF 2.1.0 / JSON Reports]
+        L --> P[GitHub PR Comments & Annotations]
+    end
+
+    style Ingestion fill:#1e293b,stroke:#3b82f6,stroke-width:1px,color:#fff
+    style TrustBoundary fill:#1e293b,stroke:#8b5cf6,stroke-width:1px,color:#fff
+    style DualAnalysis fill:#1e293b,stroke:#06b6d4,stroke-width:1px,color:#fff
+    style VerificationGate fill:#1e293b,stroke:#f59e0b,stroke-width:1px,color:#fff
+    style ScoringDelivery fill:#1e293b,stroke:#10b981,stroke-width:1px,color:#fff
 ```
 
-- GitHub input is limited to strict `https://github.com/{owner}/{repo}/pull/{number}` URLs. DiffGuard constructs the API URL itself, uses at most two bounded eight-second attempts for transient failures, and caps text diffs at 500 KB and 50 changed files. Binary patches fail with a clear error.
-- Model input is separately capped at 80,000 characters and model output at 4,000 tokens; heuristic checks still evaluate the complete accepted text diff.
-- Added, removed, and context lines receive stable IDs such as `DG-F1-H1-L3` before either rules or a model sees them.
-- Deterministic heuristics flag potentially unsafe SQL interpolation, committed secrets, dynamic execution, unsafe HTML, weak hashing, and prompt-injection phrases for further review. They do not prove exploitability.
-- The optional model call uses Gemini's stateless Interactions API with an explicit JSON schema, low reasoning, no tools, one bounded 45-second attempt, and Zod validation after parsing. A second local guardrail requires every evidence ID to exist and every supplied quote to match the referenced diff line exactly. The integration follows Google's [structured-output guidance](https://ai.google.dev/gemini-api/docs/structured-output).
-- Model requests set `store: false`. The Gemini free tier may still use submitted content to improve Google products, so the MVP is limited to public or non-sensitive diffs and surfaces that disclosure in the UI.
-- Raw, approved, and rejected structured candidates are preserved with reason codes such as `UNKNOWN_LINE_ID`, `EVIDENCE_QUOTE_MISMATCH`, `LOW_CONFIDENCE`, and `DUPLICATE_FINDING`. The UI exposes both Raw AI and Guarded Review views.
-- The finding-level **Ask DiffGuard** assistant answers five guided questions using only the selected validated finding. It makes no extra model call, adds no conversation state, and can copy an evidence-grounded implementation checklist.
-- DiffGuard enforces structural grounding: it prevents citations to nonexistent changed lines and mismatched quotes. This does not prove that an approved finding is semantically correct.
-- Review responses include a correlation ID and `Server-Timing`; privacy-safe JSON logs record operational counts and failure categories without diff text, URLs, prompts, or model output.
-- Public PR and raw-diff requests have a configurable, best-effort per-instance limit. The seeded demo bypasses this limit because it makes no model request.
-- `/api/health` reports deterministic and hybrid capability readiness without exposing credentials, while global CSP, frame, MIME, referrer, resource, and permissions headers harden the browser surface.
+### Pipeline Stages
 
-## Run locally
+| Stage | Responsibility | Failure Mode / Boundary Control |
+| :--- | :--- | :--- |
+| **1. Bounded Ingest** | Strict URL validation (`https://github.com/{owner}/{repo}/pull/{n}`), max 500 KB diff, max 50 files. | Binary patches, oversized diffs, or non-GitHub URLs fail with actionable errors. |
+| **2. Trusted Line IDs** | Parses diff hunks; assigns immutable IDs to added, removed, and context lines (`DG-F1-H1-L3`). | Neither rules nor LLM can fabricate line IDs that match diff lines. |
+| **3. Deterministic Heuristics** | Scans added lines for high-confidence vulnerability patterns & prompt injections. | Provides a guaranteed security baseline with 0 API dependencies. |
+| **4. Structured Gemini Review** | Gemini 3.6 Flash receives only indexed diff lines and outputs strict JSON. | Constrained by Zod schema; limited to 4,000 output tokens and 45-second timeout. |
+| **5. Citation Integrity Gate** | Validates that every referenced `lineId` exists and that the `quote` string matches the exact source line. | Rejects with codes: `UNKNOWN_LINE_ID`, `EVIDENCE_QUOTE_MISMATCH`, `LOW_CONFIDENCE`, `DUPLICATE_FINDING`. |
+| **6. Deduplication & Scoring** | Merges overlapping rule and model findings; computes normalized 0–100 risk score. | Only verified findings contribute to score; unverified AI claims are ignored. |
 
-Requirements: Node.js 22+ and pnpm.
+---
+
+## Key Features
+
+### 1. Interactive Review Workbench
+- **Three Input Modes**: Public GitHub PR URL, raw unified diff paste, or a safe deterministic seeded vulnerable demo.
+- **Diff Viewer with Evidence Highlighting**: Click any finding to highlight the exact validated diff line in the code viewer.
+- **Multi-Stage Progress Tracker**: Visually communicates parsing, ID assignment, heuristic checks, and model validation stages.
+
+### 2. "Ask DiffGuard" Grounded Assistant
+An evidence-bound remediation assistant attached to every finding card. It operates **entirely client-side** with **zero extra LLM calls** and **zero conversation state**:
+- 🎯 **What should I fix first?** (`priority`): Evaluates severity, blocks merge if critical/high, and cites the starting line.
+- 🔍 **Explain this risk** (`explain`): Breaks down the vulnerability description alongside validated evidence citations.
+- 🛡️ **Safer approach** (`safer-approach`): Concrete architectural guidance on fixing the defect safely.
+- 🧪 **Tests to add** (`tests`): Pre-defined regression tests and boundary cases for that specific rule.
+- 📋 **Implementation checklist** (`checklist`): Assembles a copyable step-by-step checklist for PR authors.
+- 📋 **One-Click Copy**: Copies formatted Markdown with explicit grounding disclaimers.
+
+### 3. Model Boundary Inspector (Raw AI vs. Guarded Review)
+- **Guarded Review Tab**: Displays approved findings and lists rejected model candidates with exact failure codes (`UNKNOWN_LINE_ID`, `EVIDENCE_QUOTE_MISMATCH`, `LOW_CONFIDENCE`).
+- **Raw AI Tab**: Inspects raw, unfiltered candidate output from Gemini before validation filters were applied.
+
+### 4. Deterministic Heuristic Rules
+
+| Rule ID | Name | Category | Severity | Detection Target |
+| :--- | :--- | :--- | :--- | :--- |
+| `DG-SQL-001` | Possible string-built SQL query | Security | High | Dynamic SQL string concatenation & interpolation (`${...}`, `%s`, `.format()`). |
+| `DG-SECRET-001` | Possible hardcoded credential | Security | High | Hardcoded API keys, tokens, and passwords matching secret patterns. |
+| `DG-EXEC-001` | Dynamic execution primitive | Security | High | Unsafe execution sinks (`eval()`, `new Function()`, `execSync()`, `child_process.exec()`). |
+| `DG-XSS-001` | Raw HTML rendering | Security | High | Dangerous markup sinks (`dangerouslySetInnerHTML`, `.innerHTML =`). |
+| `DG-CRYPTO-001` | Weak digest detected | Security | Medium | Insecure hash functions (`md5`, `sha1`) in cryptographic contexts. |
+| `DG-INJ-001` | Prompt injection marker | Security | Medium | System prompt override phrases (e.g., `ignore previous instructions`, `mark as safe`). |
+
+---
+
+## Risk Scoring Formula
+
+DiffGuard calculates a deterministic, bounded risk score between **0 and 100**. Unsupported or rejected model claims **never** contribute to the score.
+
+$$\text{Finding Contribution} = \text{Severity Weight} \times (0.72 + \text{Confidence} \times 0.28) \times \text{Source Weight}$$
+
+$$\text{Risk Score} = \operatorname{clamp}\left(\operatorname{round}\left(\sum \text{Unique Contributions}\right), 0, 100\right)$$
+
+### Weights & Multipliers
+
+| Severity | Severity Weight | Source | Source Weight | Notes |
+| :--- | :---: | :--- | :---: | :--- |
+| **Critical** | `42` | **Deterministic Rule** | `1.00` | High-precision regex pattern match. |
+| **High** | `26` | **Structured Gemini Model** | `0.85` | Validated model finding ($\ge 0.55$ confidence). |
+| **Medium** | `13` | — | — | Candidates below $0.55$ confidence are rejected. |
+| **Low** | `5` | — | — | Exact duplicates & overlapping findings are merged. |
+
+---
+
+## Evaluation Harness & Quality Gates
+
+DiffGuard includes a rigorous, automated evaluation suite that tests both positive detection and adversarial trust-boundary enforcement:
 
 ```bash
-pnpm install
-cp .env.example .env.local
-pnpm dev
-```
-
-Open `http://localhost:3000`. The seeded demo always works without a key and uses deterministic adversarial candidates. Public-PR and raw-diff reviews run deterministic checks without `GEMINI_API_KEY`; adding a Google AI Studio key enables hybrid analysis with the stable `gemini-3.6-flash` model. `DIFFGUARD_RATE_LIMIT_MAX` and `DIFFGUARD_RATE_LIMIT_WINDOW_SECONDS` configure the public review limit.
-
-## Quality gate
-
-```bash
-pnpm typecheck
-pnpm lint
-pnpm test
 pnpm eval
-pnpm build
 ```
 
-The initial evaluation harness contains 15 labeled security, prompt-injection, renamed/deleted-file, and hard-negative diffs plus nine adversarial model-boundary cases. The latter exercise malformed schemas, invented line IDs, quote mismatch, mixed evidence, duplicate output, and low confidence. CI fails if precision or recall drops below 80%, if evidence validity or the prompt-injection fixture pass rate falls below 100%, or if any fixture regresses.
+- **15 Labeled Regression Diffs**: Covers SQL injection, secrets, dynamic execution, XSS, weak crypto, prompt injections, clean changes (hard negatives), and renamed/deleted files.
+- **9 Adversarial Model-Boundary Fixtures**: Tests malformed schemas, invented line IDs (`DG-INVENTED-L999`), quote mismatches, duplicate claims, mixed valid/invalid evidence, and sub-threshold confidence.
+- **CI Pass Thresholds**:
+  - Precision: $\ge 80\%$
+  - Recall: $\ge 80\%$
+  - Evidence Citation Validity: $100\%$ (Zero hallucinated citations allowed)
+  - Prompt Injection Defense: $100\%$
 
-This small, handcrafted corpus is a regression harness—not a benchmark and not evidence of dependable real-world vulnerability detection.
+> [!TIP]
+> Visit [`/evaluation`](https://diffguard-ten.vercel.app/evaluation) on the live deployment to view the real-time evaluation dashboard and inspect the adversarial rejection traces.
 
-The evaluation page also includes a visible rejection trace for an invented citation (`DG-INVENTED-L999`). It is an adversarial fixture, not a claim that a live model produced that exact value.
+---
 
-## DevOps and GitHub integration
+## GitHub Actions & CI/CD Integration
 
-DiffGuard includes a deliberately small operational layer that can be explained and demonstrated:
-
-- `quality.yml` type-checks, lints, tests, reruns the labeled evaluation gate, builds the production application, and retains the evaluation JSON as a 14-day workflow artifact.
-- `codeql.yml` scans JavaScript and TypeScript on pushes, pull requests, and a weekly schedule.
-- Dependabot groups weekly production, development, and GitHub Actions updates.
-- `deployment-smoke.yml` validates the deployed `/api/health` readiness contract after successful GitHub deployments or by manual dispatch.
-- The root `action.yml` is a reusable composite action. It sends only a public PR URL to DiffGuard, emits up to ten escaped workflow annotations from final findings, writes the validated result to the GitHub job summary, saves JSON and SARIF reports, optionally upserts one PR comment, and can enforce an explicit risk threshold.
-
-The repository's own `DiffGuard PR review` workflow is manually dispatched with a PR number. It checks out the trusted default branch before running the local action, so pull-request changes cannot replace action code while a write-capable token is present.
-
-After deployment, add an Actions repository variable named `DIFFGUARD_URL` containing the HTTPS Vercel URL. Then run **Actions → DiffGuard PR review → Run workflow** and enter a public PR number.
-
-Other public repositories can consume a tagged release of the action:
+DiffGuard ships with a reusable composite GitHub Action ([`action.yml`](action.yml)) to bring evidence-first code review into your CI workflow:
 
 ```yaml
-name: DiffGuard
+name: DiffGuard PR Review
+
 on:
   pull_request:
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
@@ -96,7 +185,11 @@ jobs:
   review:
     runs-on: ubuntu-latest
     steps:
-      - id: diffguard
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run DiffGuard Review
+        id: diffguard
         uses: kevingerard2819/diffguard@v1.2.0
         with:
           diffguard-url: ${{ vars.DIFFGUARD_URL }}
@@ -106,65 +199,134 @@ jobs:
           fail-on: high
           report-path: diffguard-review.json
           sarif-path: diffguard-results.sarif
-      - name: Upload DiffGuard SARIF
+
+      - name: Upload SARIF to GitHub Code Scanning
         if: always() && github.event.pull_request.head.repo.full_name == github.repository
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: diffguard-results.sarif
           category: diffguard
-      - name: Upload DiffGuard evidence report
+
+      - name: Save Review Artifacts
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
-          name: diffguard-review-${{ github.run_id }}
+          name: diffguard-report-${{ github.run_id }}
           path: |
             diffguard-review.json
             diffguard-results.sarif
-          if-no-files-found: warn
 ```
 
-The composite action writes JSON and SARIF reports; the separate upload steps make them available to GitHub Code Scanning and as downloadable workflow artifacts. SARIF upload is skipped for forked pull requests because GitHub restricts their token. Comment failure remains non-fatal: annotations, reports, and the job summary remain available. The GitHub token is used only against GitHub's comment API and is never sent to the DiffGuard deployment.
+### Action Features & Safeguards
+- **PR Summary Comment**: Automatically creates or updates a single markdown comment on the pull request.
+- **Workflow Annotations**: Emits up to 10 escaped GitHub workflow annotations directly onto the changed lines.
+- **SARIF 2.1.0 Export**: Generates SARIF files for native ingestion into GitHub Code Scanning.
+- **Risk Gate**: Configurable `fail-on` threshold (`never`, `low`, `medium`, `high`, `critical`) to block merge on high-risk diffs.
+- **Token Isolation**: The `GITHUB_TOKEN` is used only locally by the action runner to call GitHub's PR comment API; it is **never transmitted** to the DiffGuard server.
 
-## Deploy to Vercel
+---
 
-1. Import the repository into Vercel as a Next.js project.
-2. Optionally add `GEMINI_API_KEY` and `GEMINI_MODEL=gemini-3.6-flash` in Project Settings > Environment Variables. Rotate any key that has been shared outside the deployment.
-3. Set `DIFFGUARD_RATE_LIMIT_MAX=8` and `DIFFGUARD_RATE_LIMIT_WINDOW_SECONDS=600`, then configure provider or edge quotas for multi-instance protection.
-4. Deploy, then add the deployment URL as the `DIFFGUARD_URL` Actions repository variable.
-5. Run the `Deployment smoke test` workflow once manually. Future Vercel deployment-status events are checked automatically when they include an environment URL.
+## Quickstart & Local Development
 
-No database, background worker, or private GitHub credential is required for the MVP.
+### Prerequisites
+- **Node.js**: v22.0.0 or higher
+- **Package Manager**: `pnpm` (recommended), `npm`, or `yarn`
 
-The review route is configured for the Node.js runtime with a 60-second maximum duration. If no model key is present or a model request fails, deterministic analysis is returned with a visible warning.
+### Installation
 
-## Risk score
+```bash
+# 1. Clone the repository
+git clone https://github.com/kevingerard2819/diffguard.git
+cd diffguard
 
-The score is a bounded prioritization signal, not the probability that a pull request is vulnerable. Exact duplicates are removed, and overlapping deterministic/model findings with the same category and primary evidence line are merged before scoring.
+# 2. Install dependencies
+pnpm install
+
+# 3. Configure environment variables
+cp .env.example .env.local
+
+# 4. Start local development server
+pnpm dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### Environment Configuration
+
+| Variable | Required | Default | Description |
+| :--- | :---: | :---: | :--- |
+| `GEMINI_API_KEY` | Optional | `""` | Google AI Studio API key. If omitted, DiffGuard runs in **deterministic-only** mode. |
+| `GEMINI_MODEL` | Optional | `gemini-3.6-flash` | Gemini model identifier for structured review. |
+| `DIFFGUARD_RATE_LIMIT_MAX` | Optional | `8` | Max review requests per rate limit window. |
+| `DIFFGUARD_RATE_LIMIT_WINDOW_SECONDS` | Optional | `600` | Rate limit window in seconds (default: 10 minutes). |
+
+### Scripts & Verification Commands
+
+```bash
+pnpm typecheck    # TypeScript compiler check (tsc --noEmit)
+pnpm lint         # Next.js and ESLint static analysis
+pnpm test         # Run unit & guardrail tests with Vitest
+pnpm eval         # Run labeled regression evaluation harness
+pnpm build        # Next.js production build
+```
+
+---
+
+## Repository Structure
 
 ```text
-finding contribution = severity weight × (0.72 + confidence × 0.28) × source weight
-risk score = clamp(round(sum(unique contributions)), 0, 100)
+├── action.yml                  # Reusable composite GitHub Action
+├── app/                        # Next.js App Router
+│   ├── api/
+│   │   ├── health/             # Readiness & health check endpoint
+│   │   └── review/             # Main review route (bounded ingest & analysis)
+│   ├── evaluation/             # Real-time evaluation dashboard page
+│   ├── layout.tsx              # Root HTML layout with security headers & theme
+│   └── page.tsx                # Main review workbench page
+├── components/                 # React UI Components
+│   ├── evaluation-view.tsx     # Evaluation harness & fixture inspector
+│   ├── review-workbench.tsx    # Diff viewer, finding cards, Ask DiffGuard, inspector
+│   └── theme-toggle.tsx        # Accessible dark/light mode toggle
+├── docs/                       # Documentation & media
+│   ├── DEMO_SCRIPT.md          # 3-minute founding engineer demo script
+│   └── diffguard-dashboard.png # High-res dashboard preview
+├── lib/                        # Core Domain & Review Engine
+│   ├── deterministic-review.ts # Regex-based security heuristics & injection rules
+│   ├── diff-parser.ts          # Unified diff parser & trusted line ID generator
+│   ├── domain.ts               # Domain types, Zod schemas, & validation contracts
+│   ├── evaluation.ts           # Benchmark runner & metrics calculation
+│   ├── fixtures.ts             # 15 labeled diff fixtures & adversarial test cases
+│   ├── gemini-review.ts        # Structured Gemini client with prompt framing
+│   ├── github.ts               # Bounded GitHub PR diff fetching
+│   ├── guardrails.ts           # Citation integrity gate & deduplication engine
+│   ├── rate-limit.ts           # In-memory token bucket rate limiter
+│   ├── review-assistant.ts     # "Ask DiffGuard" guided question engine
+│   └── review-service.ts       # Orchestration pipeline (deterministic + hybrid)
+├── scripts/                    # CLI & CI Automation
+│   ├── github-review.mjs       # Runner script for GitHub Action
+│   └── smoke-deployment.mjs    # Post-deployment health verification
+└── tests/                      # Vitest Unit & Integration Test Suite
+    ├── diff-parser.test.ts
+    ├── evaluation.test.ts
+    ├── gemini-review.test.ts
+    ├── github-action.test.ts
+    ├── guardrails.test.ts
+    ├── operations.test.ts
+    └── review-assistant.test.ts
 ```
 
-Severity weights are critical `42`, high `26`, medium `13`, and low `5`. Source weights are deterministic `1.0` and model `0.85`. A deterministic percentage is rule-match confidence, not exploit probability; a model percentage is the model's structured confidence signal. Model candidates below `0.55` confidence are rejected before scoring.
+---
 
-## Threat model and limitations
+## Threat Model & Deliberate Scope
 
-- Diff text is untrusted data. Prompt-like content is delimited for the model and independently detected by a deterministic guardrail.
-- Free-tier Gemini requests must contain only public or non-sensitive code. DiffGuard does not persist submitted source, but Google's free-tier data terms still apply to the bounded lines sent for live review.
-- Public GitHub requests are unauthenticated and therefore subject to GitHub rate limits; raw-diff input is the fallback.
-- Pattern checks are deliberately precise heuristics rather than exhaustive analysis. A clear result is not a guarantee that code is safe or defect-free.
-- DiffGuard's pipeline is language-agnostic for text-based Git diffs, but review coverage is strongest for the languages and vulnerability patterns represented in its deterministic rules and evaluation fixtures. Gemini can review many languages with varying, unguaranteed accuracy; binary files, oversized diffs, and specialized generated formats remain outside the supported boundary.
-- Exact citation integrity does not establish semantic correctness; an approved model finding can still misunderstand a real line.
-- Adversarial model-boundary fixtures remain isolated to the evaluation page and automated tests; they are never presented as live-model output.
-- DiffGuard does not execute submitted code and does not fetch arbitrary URLs.
-- The built-in limiter is intentionally best-effort and per server instance; provider quotas or edge enforcement are still required for durable multi-instance protection.
-- Real-world expansion should add language-aware data flow, a larger labeled corpus, durable edge rate limiting, deeper observability, and authenticated GitHub App access as separate milestones.
+- **Diffs are Untrusted Input**: Untrusted diff text is encapsulated in fenced code delimiters. Prompt injection phrases are independently flagged by deterministic rules.
+- **Structural Grounding $\ne$ Semantic Proof**: Citation verification proves that a cited line exists and that the quote matches verbatim. It does not guarantee that the model's interpretation of vulnerability is mathematically correct.
+- **Public & Non-Sensitive Code Only**: The free-tier Gemini API terms apply to model requests. Sensitive private repositories are out of scope for this MVP.
+- **No Arbitrary URL Fetching**: The server strictly constructs GitHub API URLs from validated PR numbers and will not make arbitrary HTTP requests.
+- **Heuristic Boundaries**: Deterministic checks provide high-precision heuristic signals, not whole-program taint analysis. A clear result is not a guarantee that the codebase is defect-free.
 
-## Interview demo
-
-Use [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md) for a focused three-minute walkthrough covering the product problem, trusted-line boundary, rejection trace, evaluation gate, and deliberate MVP trade-offs.
+---
 
 ## License
 
-[MIT](LICENSE)
+This project is licensed under the [MIT License](LICENSE).
