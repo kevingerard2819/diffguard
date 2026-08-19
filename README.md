@@ -130,7 +130,7 @@ DiffGuard calculates a deterministic, bounded risk score between **0 and 100**. 
 
 $$\text{Finding Contribution} = \text{Severity Weight} \times (0.72 + \text{Confidence} \times 0.28) \times \text{Source Weight}$$
 
-$$\text{Risk Score} = \operatorname{clamp}\left(\operatorname{round}\left(\sum \text{Unique Contributions}\right), 0, 100\right)$$
+
 
 ### Weights & Multipliers
 
